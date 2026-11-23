@@ -68,7 +68,7 @@ class TestCheckFiltering(unittest.TestCase):
                 },
             ]
         )
-        self.assertIsNone(up.waiting_since_for_pr(pr, "oharboe"))
+        self.assertIsNone(up.waiting_since_for_pr(pr, "alice"))
 
     def test_pr_merge_error_with_pr_head_green_stays_reviewer_move(self):
         pr = _pr(
@@ -92,7 +92,7 @@ class TestCheckFiltering(unittest.TestCase):
             ]
         )
         self.assertEqual(
-            up.waiting_since_for_pr(pr, "oharboe"),
+            up.waiting_since_for_pr(pr, "alice"),
             up.parse_iso("2026-11-18T16:00:00Z"),
         )
 
@@ -112,12 +112,12 @@ class TestCheckFiltering(unittest.TestCase):
                 },
             ]
         )
-        self.assertIsNotNone(up.waiting_since_for_pr(pr, "oharboe"))
+        self.assertIsNotNone(up.waiting_since_for_pr(pr, "alice"))
 
     def test_draft_and_conflicting_are_excluded(self):
-        self.assertIsNone(up.waiting_since_for_pr(_pr(is_draft=True), "oharboe"))
+        self.assertIsNone(up.waiting_since_for_pr(_pr(is_draft=True), "alice"))
         self.assertIsNone(
-            up.waiting_since_for_pr(_pr(mergeable="CONFLICTING"), "oharboe")
+            up.waiting_since_for_pr(_pr(mergeable="CONFLICTING"), "alice")
         )
 
     def test_unresolved_review_thread_not_answered_by_author_excludes(self):
@@ -135,7 +135,7 @@ class TestCheckFiltering(unittest.TestCase):
                 },
             }
         ]
-        self.assertIsNone(up.waiting_since_for_pr(_pr(threads=unresolved), "oharboe"))
+        self.assertIsNone(up.waiting_since_for_pr(_pr(threads=unresolved), "alice"))
 
 
 class TestInactivityClockStart(unittest.TestCase):
@@ -152,12 +152,12 @@ class TestInactivityClockStart(unittest.TestCase):
             ],
             comments=[
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-21T10:36:00Z",
-                    "body": "@reviewer Thoughts?",
+                    "body": "@bob Thoughts?",
                 },
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-22T09:35:00Z",
                     "body": "/gemini review",
                 },
@@ -169,7 +169,7 @@ class TestInactivityClockStart(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            up.waiting_since_for_pr(pr, "oharboe"),
+            up.waiting_since_for_pr(pr, "alice"),
             up.parse_iso("2026-11-19T07:42:00Z"),
         )
 
@@ -178,14 +178,14 @@ class TestInactivityClockStart(unittest.TestCase):
             commits=[("2026-11-18T16:00:00Z", "initial")],
             reviews=[
                 {
-                    "author": {"login": "vvbandeira"},
+                    "author": {"login": "bob"},
                     "state": "CHANGES_REQUESTED",
                     "submittedAt": "2026-11-19T13:49:00Z",
                     "body": "Please fix LEF handling.",
                 }
             ],
         )
-        self.assertIsNone(up.waiting_since_for_pr(pr, "oharboe"))
+        self.assertIsNone(up.waiting_since_for_pr(pr, "alice"))
 
     def test_substantive_fix_after_human_review_starts_clock_and_ignores_later_ping(
         self,
@@ -197,24 +197,24 @@ class TestInactivityClockStart(unittest.TestCase):
             ],
             comments=[
                 {
-                    "author": {"login": "maliberty"},
+                    "author": {"login": "carol"},
                     "createdAt": "2026-11-21T22:31:00Z",
                     "body": "Why keep helper.sh?",
                 },
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-21T22:43:00Z",
                     "body": "Deleted in 8a147b4.",
                 },
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-23T06:03:00Z",
-                    "body": "@maliberty Fixed.",
+                    "body": "@carol Fixed.",
                 },
             ],
         )
         self.assertEqual(
-            up.waiting_since_for_pr(pr, "oharboe"),
+            up.waiting_since_for_pr(pr, "alice"),
             up.parse_iso("2026-11-21T22:42:00Z"),
         )
 
@@ -223,61 +223,112 @@ class TestInactivityClockStart(unittest.TestCase):
             commits=[("2026-11-18T10:00:00Z", "initial")],
             comments=[
                 {
-                    "author": {"login": "reviewer1"},
+                    "author": {"login": "bob"},
                     "createdAt": "2026-11-19T09:00:00Z",
                     "body": "Does this affect flat mode?",
                 },
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-19T10:15:00Z",
                     "body": "No, only hierarchical mode reaches this branch.",
                 },
                 {
-                    "author": {"login": "oharboe"},
+                    "author": {"login": "alice"},
                     "createdAt": "2026-11-21T08:00:00Z",
-                    "body": "@reviewer1 gentle ping",
+                    "body": "@bob gentle ping",
                 },
             ],
         )
         self.assertEqual(
-            up.waiting_since_for_pr(pr, "oharboe"),
+            up.waiting_since_for_pr(pr, "alice"),
             up.parse_iso("2026-11-19T10:15:00Z"),
         )
 
 
+class TestReviewerDiscovery(unittest.TestCase):
+
+    def test_top_reviewer_from_merged_prs_ignores_author_and_bots(self):
+        merged = [
+            {
+                "mergedBy": {"login": "alice"},
+                "reviews": {"nodes": [{"author": {"login": "gemini-code-assist"}}]},
+            },
+            {
+                "mergedBy": {"login": "bob"},
+                "reviews": {"nodes": [{"author": {"login": "carol"}}]},
+            },
+            {
+                "mergedBy": {"login": "carol"},
+                "reviews": {"nodes": []},
+            },
+        ]
+        self.assertEqual(up.top_reviewer_from_merged_prs(merged, "alice"), "carol")
+
+    def test_fetch_reviewer_profiles_unpacks_repos(self):
+        def fake_gh(_args):
+            return {
+                "data": {
+                    "u": {
+                        "contributionsCollection": {
+                            "pullRequestReviewContributions": {
+                                "pageInfo": {"hasNextPage": False},
+                                "nodes": [
+                                    {
+                                        "occurredAt": "2026-11-20T12:00:00Z",
+                                        "repository": {
+                                            "nameWithOwner": "The-OpenROAD-Project/OpenROAD"
+                                        },
+                                    }
+                                ],
+                            }
+                        },
+                        "issueComments": {
+                            "pageInfo": {"hasPreviousPage": False},
+                            "nodes": [],
+                        },
+                    },
+                    "m": {"pageInfo": {"hasNextPage": False}, "nodes": []},
+                }
+            }
+
+        now = datetime(2026, 11, 23, 9, 0, tzinfo=timezone.utc)
+        profs = up.fetch_reviewer_profiles(["bob"], now=now, weeks=4, gh_runner=fake_gh)
+        self.assertEqual(profs["bob"].active_days_observed, 1)
+
+
 class TestEmpiricalReviewerActivity(unittest.TestCase):
 
-    def test_egypt_sun_thu_vs_sat_sun_and_part_time_profiles(self):
+    def test_sun_thu_vs_mon_fri_and_part_time_profiles(self):
         # End on Monday 2026-11-23; 4-week window has 4 of each weekday.
         end = date(2026, 11, 23)
         start_window = end - timedelta(days=27)
 
-        # Reviewer A (Egypt): active every Sun..Thu (100%), never Fri/Sat (0%).
-        egypt_dates = set()
-        # Reviewer B (Part-time): active only on 2 of the 4 Tuesdays (50% Tue).
+        # Reviewer A: active every Sun..Thu (100%), never Fri/Sat (0%).
+        sun_thu_dates = set()
+        # Reviewer B: active only on 2 of the 4 Tuesdays (50% Tue).
         part_time_dates = set()
         tuesdays = []
 
         cur = start_window
         while cur <= end:
             if cur.weekday() not in (4, 5):  # not Fri, Sat
-                egypt_dates.add(cur)
+                sun_thu_dates.add(cur)
             if cur.weekday() == 1:
                 tuesdays.append(cur)
             cur += timedelta(days=1)
         part_time_dates.update(tuesdays[:2])
 
-        egypt_prof = up.build_reviewer_profile(
-            "egypt_rev", egypt_dates, end_date=end, weeks=4
+        sun_thu_prof = up.build_reviewer_profile(
+            "rev_a", sun_thu_dates, end_date=end, weeks=4
         )
         pt_prof = up.build_reviewer_profile(
-            "part_time_rev", part_time_dates, end_date=end, weeks=4
+            "rev_b", part_time_dates, end_date=end, weeks=4
         )
 
-        self.assertAlmostEqual(egypt_prof.weekday_weights[4], 0.0)  # Fri
-        self.assertAlmostEqual(egypt_prof.weekday_weights[5], 0.0)  # Sat
-        self.assertAlmostEqual(egypt_prof.weekday_weights[6], 1.0)  # Sun
-        self.assertAlmostEqual(egypt_prof.days_per_week, 5.0)
+        self.assertAlmostEqual(sun_thu_prof.weekday_weights[4], 0.0)  # Fri
+        self.assertAlmostEqual(sun_thu_prof.weekday_weights[5], 0.0)  # Sat
+        self.assertAlmostEqual(sun_thu_prof.weekday_weights[6], 1.0)  # Sun
+        self.assertAlmostEqual(sun_thu_prof.days_per_week, 5.0)
 
         self.assertAlmostEqual(pt_prof.weekday_weights[1], 0.5)  # Tue
         self.assertAlmostEqual(pt_prof.days_per_week, 0.5)
@@ -287,12 +338,12 @@ class TestEmpiricalReviewerActivity(unittest.TestCase):
         wait_start = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
         now = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
 
-        # Egypt: 0.5(Thu) + 0(Fri) + 0(Sat) + 1.0(Sun) + 0.5(Mon) = 2.0d
+        # Sun..Thu: 0.5(Thu) + 0(Fri) + 0(Sat) + 1.0(Sun) + 0.5(Mon) = 2.0d
         self.assertAlmostEqual(
-            up.integrate_active_days(wait_start, now, egypt_prof.weekday_weights),
+            up.integrate_active_days(wait_start, now, sun_thu_prof.weekday_weights),
             2.0,
         )
-        # Standard Mon-Fri: 0.5(Thu) + 1.0(Fri) + 0 + 0 + 0.5(Mon) = 2.0d
+        # Standard Mon..Fri: 0.5(Thu) + 1.0(Fri) + 0 + 0 + 0.5(Mon) = 2.0d
         self.assertAlmostEqual(
             up.integrate_active_days(wait_start, now, up.DEFAULT_MON_FRI_WEIGHTS),
             2.0,
@@ -329,7 +380,7 @@ class TestEmpiricalReviewerActivity(unittest.TestCase):
             requested_reviewers=["rare_rev"],
         )
         pr_excluded = _pr(
-            number=4771,
+            number=99,
             commits=[("2026-11-01T09:00:00Z", "feat c")],
             requested_reviewers=["fast_rev"],
         )
@@ -339,14 +390,14 @@ class TestEmpiricalReviewerActivity(unittest.TestCase):
                 (
                     "ORFS",
                     "The-OpenROAD-Project/OpenROAD-flow-scripts",
-                    "maliberty",
+                    "fast_rev",
                     [pr_fast, pr_rare, pr_excluded],
                 )
             ],
-            author="oharboe",
+            author="alice",
             profiles=profiles,
             now=now,
-            excluded={"orfs#4771"},
+            excluded={"orfs#99"},
         )
         # pr_fast waited 2d * 1.0 = 2.0 active days; pr_rare waited <0.5 active days.
         self.assertEqual([r.number for r in ranked], [10, 11])

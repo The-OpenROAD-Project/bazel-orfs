@@ -24,6 +24,7 @@ Reviewer activity model:
 """
 
 import argparse
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import json
@@ -33,10 +34,10 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tupl
 
 OWNER = "The-OpenROAD-Project"
 
-REPOS: Tuple[Tuple[str, str, str], ...] = (
-    ("OpenROAD", f"{OWNER}/OpenROAD", "maliberty"),
-    ("ORFS", f"{OWNER}/OpenROAD-flow-scripts", "maliberty"),
-    ("OpenSTA", f"{OWNER}/OpenSTA", "dsengupta0628"),
+REPOS: Tuple[Tuple[str, str], ...] = (
+    ("OpenROAD", f"{OWNER}/OpenROAD"),
+    ("ORFS", f"{OWNER}/OpenROAD-flow-scripts"),
+    ("OpenSTA", f"{OWNER}/OpenSTA"),
 )
 
 IGNORED_FAILING_CHECKS = frozenset({"CI-Public/pr-merge"})
@@ -262,7 +263,9 @@ def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
     return None
 
 
-def resolve_reviewers(pr: dict, author: str, fallback_reviewer: str) -> Tuple[str, ...]:
+def resolve_reviewers(
+    pr: dict, author: str, fallback_reviewer: Optional[str] = None
+) -> Tuple[str, ...]:
     """Identify the human reviewer(s) whose move the PR is waiting on."""
     author_low = author.lower()
 
@@ -320,8 +323,10 @@ def resolve_reviewers(pr: dict, author: str, fallback_reviewer: str) -> Tuple[st
         recent_humans.sort(key=lambda item: item[0], reverse=True)
         return (recent_humans[0][1],)
 
-    # 4. Repository default maintainer.
-    return (fallback_reviewer,)
+    # 4. Discovered active maintainer of the repository (if any).
+    if fallback_reviewer:
+        return (fallback_reviewer,)
+    return ()
 
 
 def build_reviewer_profile(
@@ -488,6 +493,65 @@ def resolve_author_login(
     user = gh_runner(["api", "user"])
     assert isinstance(user, dict)
     return str(user["login"])
+
+
+def discover_repo_default_reviewer(
+    repo_full: str,
+    author: str,
+    gh_runner: Callable[[Sequence[str]], object] = run_gh_json,
+) -> Optional[str]:
+    """Infer a repository's most active recent merger/reviewer dynamically."""
+    owner, name = repo_full.split("/", 1)
+    query = f"""
+    query {{
+      repository(owner: {json.dumps(owner)}, name: {json.dumps(name)}) {{
+        pullRequests(
+          states: MERGED,
+          first: 25,
+          orderBy: {{field: UPDATED_AT, direction: DESC}}
+        ) {{
+          nodes {{
+            mergedBy {{ login }}
+            reviews(last: 10) {{
+              nodes {{ author {{ login }} }}
+            }}
+          }}
+        }}
+      }}
+    }}
+    """
+    resp = gh_runner(["api", "graphql", "-f", f"query={query}"])
+    assert isinstance(resp, dict)
+    nodes = resp["data"]["repository"]["pullRequests"]["nodes"] or []
+    return top_reviewer_from_merged_prs(nodes, author)
+
+
+def top_reviewer_from_merged_prs(
+    merged_pr_nodes: Sequence[dict], author: str
+) -> Optional[str]:
+    """Pick the human login with the most recent merge/review actions."""
+    author_low = author.lower()
+    counts: Counter = Counter()
+    casing: Dict[str, str] = {}
+    for pr in merged_pr_nodes:
+        if not pr:
+            continue
+        merger = (pr.get("mergedBy") or {}).get("login")
+        if merger and not is_bot(merger) and merger.lower() != author_low:
+            counts[merger.lower()] += 1
+            casing.setdefault(merger.lower(), merger)
+        seen_in_pr: Set[str] = set()
+        for rev in pr.get("reviews", {}).get("nodes") or []:
+            login = (rev.get("author") or {}).get("login")
+            if login and not is_bot(login) and login.lower() != author_low:
+                seen_in_pr.add(login.lower())
+                casing.setdefault(login.lower(), login)
+        for low in seen_in_pr:
+            counts[low] += 1
+    if not counts:
+        return None
+    best_low = max(counts.items(), key=lambda item: item[1])[0]
+    return casing[best_low]
 
 
 def fetch_open_prs(
@@ -682,7 +746,7 @@ def fetch_reviewer_profiles(
     weeks: int = 12,
     gh_runner: Callable[[Sequence[str]], object] = run_gh_json,
 ) -> Dict[str, ReviewerProfile]:
-    target_repos = {repo_full for _, repo_full, _ in REPOS}
+    target_repos = {repo_full for _, repo_full in REPOS}
     end_date = now.astimezone(timezone.utc).date()
     cutoff_date = end_date - timedelta(days=weeks * 7 - 1)
 
@@ -706,7 +770,7 @@ def fetch_reviewer_profiles(
 
 
 def evaluate_waiting_prs(
-    prs_by_repo: Sequence[Tuple[str, str, str, Sequence[dict]]],
+    prs_by_repo: Sequence[Tuple[str, str, Optional[str], Sequence[dict]]],
     author: str,
     profiles: Dict[str, ReviewerProfile],
     now: datetime,
@@ -732,6 +796,7 @@ def evaluate_waiting_prs(
             weights = combined_weights(rev_profiles)
             active_d = integrate_active_days(wait_since, now, weights)
             cal_d = max(0.0, (now - wait_since).total_seconds() / 86400.0)
+            used_fb = (not rev_profiles) or any(p.is_fallback for p in rev_profiles)
             results.append(
                 WaitingPR(
                     repo_short=repo_short,
@@ -739,12 +804,12 @@ def evaluate_waiting_prs(
                     number=num,
                     title=str(pr["title"]),
                     url=str(pr["url"]),
-                    reviewers=revs,
+                    reviewers=revs or ("unassigned",),
                     waiting_since=wait_since,
                     active_days=active_d,
                     calendar_days=cal_d,
                     days_per_week=sum(weights),
-                    used_fallback_schedule=any(p.is_fallback for p in rev_profiles),
+                    used_fallback_schedule=used_fb,
                 )
             )
     results.sort(key=lambda item: (item.active_days, item.calendar_days), reverse=True)
@@ -831,7 +896,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--exclude",
         action="append",
         default=[],
-        help="Exclude a PR as <repo>#<number> (e.g. ORFS#4771). Repeatable.",
+        help="Exclude a PR as <repo>#<number> (e.g. ORFS#123). Repeatable.",
     )
     parser.add_argument(
         "--markdown",
@@ -846,15 +911,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     author = resolve_author_login(args.author)
     excluded = {spec.strip().lower() for spec in args.exclude if spec.strip()}
 
-    prs_by_repo: List[Tuple[str, str, str, List[dict]]] = []
+    prs_by_repo: List[Tuple[str, str, Optional[str], List[dict]]] = []
     needed_reviewers: Set[str] = set()
 
-    for repo_short, repo_full, fallback_rev in REPOS:
+    for repo_short, repo_full in REPOS:
         prs = fetch_open_prs(repo_full, args.author)
+        waiting_prs = [pr for pr in prs if waiting_since_for_pr(pr, author) is not None]
+        needs_fallback = any(
+            not resolve_reviewers(pr, author, None) for pr in waiting_prs
+        )
+        fallback_rev = (
+            discover_repo_default_reviewer(repo_full, author)
+            if needs_fallback
+            else None
+        )
         prs_by_repo.append((repo_short, repo_full, fallback_rev, prs))
-        for pr in prs:
-            if waiting_since_for_pr(pr, author) is not None:
-                needed_reviewers.update(resolve_reviewers(pr, author, fallback_rev))
+        for pr in waiting_prs:
+            needed_reviewers.update(resolve_reviewers(pr, author, fallback_rev))
 
     profiles = fetch_reviewer_profiles(needed_reviewers, now=now, weeks=args.weeks)
     waiting = evaluate_waiting_prs(
