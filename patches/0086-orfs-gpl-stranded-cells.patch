@@ -29,7 +29,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 128 insertions(+)
 
 diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
-index feb1377..e5c9823 100644
+index deff59de2..2167c3cf0 100644
 --- a/flow/scripts/global_place.tcl
 +++ b/flow/scripts/global_place.tcl
 @@ -80,6 +80,117 @@ if { $::env(CLUSTER_FLOPS) } {
@@ -151,10 +151,10 @@ index feb1377..e5c9823 100644
  
  source_step_tcl POST GLOBAL_PLACE
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index baf1a43..a078094 100644
+index 58d761ab5..a044b3830 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -940,6 +940,23 @@ SKIP_LAST_GASP:
+@@ -943,6 +943,23 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt
@@ -178,6 +178,7 @@ index baf1a43..a078094 100644
  SKIP_PIN_ACCESS:
    description: >
      Run the global route without building access points. pin_access fails on
+
 -- 
 2.53.0
 

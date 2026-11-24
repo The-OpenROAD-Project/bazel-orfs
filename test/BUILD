@@ -3005,7 +3005,7 @@ build_test(
     targets = ["@yosys//:yosys_share"],
 )
 
-# ORFS's synth.tcl as bazel-orfs patches it (0232): an SYNTH_RETIME_MODULES
+# ORFS's synth.tcl: an SYNTH_RETIME_MODULES
 # entry is a glob over the modules flattening left, one that matches none
 # is an error, and in a partition it is skipped. Fast: yosys runs the
 # script's retime block directly on a 4-module fixture, no ORFS flow.

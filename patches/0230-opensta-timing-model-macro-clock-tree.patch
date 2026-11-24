@@ -47,27 +47,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 search/test/search_timing_model_clktree_macro.tcl
  create mode 100644 search/test/search_timing_model_clktree_macro.v
 
-diff --git a/openroad/sta/search/MakeTimingModel.cc b/openroad/sta/search/MakeTimingModel.cc
-index c219065..02b1ccb 100644
---- a/openroad/sta/search/MakeTimingModel.cc
-+++ b/openroad/sta/search/MakeTimingModel.cc
-@@ -714,7 +714,12 @@ MakeTimingModel::makeClkTreePaths(LibertyPort *lib_port,
-     delays.delay(clk_rf, end_rf, min_max, insertion, delay, lib_clk_delay, latency,
-                  clk_path, exists);
-     if (exists) {
--      TimingModel *model = makeGateModelScalar(delay, end_rf);
-+      // findClkDelays chose this sink on its latency, which for a macro
-+      // with its own clock tree is the arrival at its clock pin plus that
-+      // tree (lib_clk_delay). The model's clock tree path is that sum; the
-+      // pin arrival alone can fall below the other bound (max below min).
-+      Delay tree_delay = delaySum(delay, lib_clk_delay, sta_);
-+      TimingModel *model = makeGateModelScalar(tree_delay, end_rf);
-       if (attrs == nullptr)
-         attrs = std::make_shared<TimingArcAttrs>();
-       attrs->setModel(end_rf, model);
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.lib b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 new file mode 100644
-index 0000000..6be60e4
+index 00000000..6be60e43
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 @@ -0,0 +1,71 @@
@@ -144,7 +126,7 @@ index 0000000..6be60e4
 +}
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.ok b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 new file mode 100644
-index 0000000..2fe8333
+index 00000000..2fe8333a
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 @@ -0,0 +1,4 @@
@@ -154,7 +136,7 @@ index 0000000..2fe8333
 +ok: min_clock_tree_path rise is the earliest flop's clock arrival
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.tcl b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 new file mode 100644
-index 0000000..070b017
+index 00000000..070b017a
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 @@ -0,0 +1,60 @@
@@ -220,7 +202,7 @@ index 0000000..070b017
 +  [expr { abs($min_rise - $ff_rise) < 1e-3 }]
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.v b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 new file mode 100644
-index 0000000..608e0d8
+index 00000000..608e0d8e
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 @@ -0,0 +1,13 @@
@@ -237,6 +219,7 @@ index 0000000..608e0d8
 +  clktree_macro mac (.CLK(clk), .D(n1), .Q(n2));
 +  DFF_X1 ff2 (.D(n2), .CK(clk_buf), .Q(out1));
 +endmodule
+
 -- 
 2.53.0
 

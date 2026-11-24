@@ -47,7 +47,7 @@ workload: when a stage is slow, the timer is the first suspect.
   the new M in. Exact against flat timing on all eight Frontend modules
   tried; an iteration takes 11-84 s against 96 s for Frontend flat.
 - `read_verilog` after `read_db -hier` parses a module but links nothing:
-  carried 0222 adds `link_hier_module`. `replace_hier_module` copied only
+  OpenROAD's `link_hier_module` links it. `replace_hier_module` copied only
   a module's leaf cells (odb's "TODO: handle hierarchical child
   instances") and, saving the module swapped out, merged two nets of one
   base name: carried 0223.

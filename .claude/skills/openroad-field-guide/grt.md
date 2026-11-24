@@ -94,8 +94,9 @@ dpl pixel grid ([dpl.md](dpl.md)).
 - **Memory, XSTile Top 196.3 -> 57.4 GiB, routes identical**
   (bazel-orfs #1474, OpenROAD #12075 open; the maintainer questions
   where the global usage graph should live). Merged upstream: #12074,
-  #12148 (2 B per edge and layer, sparse NDR), #11130. The rest is carried
-  as 0183-0199: smaller types, scoped maze arrays, per-net finish,
+  #12148 (2 B per edge and layer, sparse NDR), #11130, and the smaller
+  types and maze arrays (once 0183-0187, 0192). The rest is carried as
+  0188-0199: scoped maze arrays, per-net finish,
   `-no_incremental`, and an mmap backing file with page-out (0188/0189/
   0191/0196-0199).
 - `global_route -cleanup` (release router state before final

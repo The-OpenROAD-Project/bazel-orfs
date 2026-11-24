@@ -51,12 +51,14 @@ ORFS_BAZEL_PLATFORMS = [
 #   0049-orfs-mempool-rtl-files-include -> _GENERATE_DESIGN_BUILDS emits
 #                                       files("verilog") for the rtl dir
 #
+# 0039 (slang plugin fallback) and 0232 (SYNTH_RETIME_MODULES entries must
+# match) retired at the bump onto ORFS b02bf4ae9da2, which carries both.
+#
 # Nine retired at the bump onto ORFS dfc688e40ac3, which carries them in
 # its own form: 0050-0055 (SET_RC_TCL) as ORFS #4620, detail_place.tcl
 # keeps the RC file load_design chose, and #4621, SET_RC_TCL dropped;
 # 0056-0058 (WIRE_LOAD_TCL) as #4619, a declarative WIRE_LOAD_MODEL.
 ORFS_PATCHES = [
-    Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
     # synth's -extra-map runs inside the techmap step, which is after
     # flatten, so it cannot substitute a module the design defines
     # itself -- by then the instances have been inlined. VeeR's clock
@@ -153,13 +155,6 @@ ORFS_PATCHES = [
     # clocks it late (XiangShan's VecRegionModule, 245 ps). Not
     # upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0231-orfs-abstract-clock-tree-order.patch"),
-    # 0232: an SYNTH_RETIME_MODULES entry that matches no module left after
-    # flattening (the top and the kept modules) is an error; a partition
-    # skips one that names another partition's module, and
-    # retime_modules.py checks those against every partition. Not
-    # upstreamed; an upstream candidate, retires at a bump onto an ORFS
-    # that carries it.
-    Label("//patches:0232-orfs-synth-retime-modules-must-match.patch"),
     # 0234: a register-file spec's `write_select mask`: each `write` names
     # its words by a mask, a bit a word, wired to generate_ram's
     # -write_select mask (OpenROAD patch 0233). Not upstreamed; retires

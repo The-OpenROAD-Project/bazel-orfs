@@ -515,8 +515,7 @@ own module and skips the rest; the `RetimeModulesCheck` validation
 action (`retime_modules.py`) fails the build on an entry that matches
 no partition's module, the design's list and each `partition_arguments`
 list checked against the partitions it reaches. A synthesis without
-partitions fails on such an entry in ORFS's `synth.tcl` (carried
-patch 0232).
+partitions fails on such an entry in ORFS's `synth.tcl`.
 
 ## Remote execution and caching
 

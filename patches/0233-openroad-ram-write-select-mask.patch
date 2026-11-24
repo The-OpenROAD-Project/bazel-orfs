@@ -471,13 +471,13 @@ index fd7e24afe4..c4733ce319 100644
      lappend args -name [dict get $spec name]
    }
 diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
-index 95b4ddedc8..aae4672ff9 100644
+index 7b55339c37..7f8cc67882 100644
 --- a/openroad/ram/test/BUILD
 +++ b/openroad/ram/test/BUILD
 @@ -42,6 +42,7 @@ PASSFAIL_TESTS = [
      "fold_odd_groups_asap7",
-     "generate_array_asap7",
      "read_drive_asap7",
+     "generate_array_asap7",
 +    "write_select_mask_asap7",
  ]
  
@@ -620,6 +620,7 @@ index 0000000000..0b7a02a587
 +}
 +
 +puts "pass"
+
 -- 
 2.53.0
 
