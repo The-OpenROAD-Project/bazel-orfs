@@ -33,6 +33,16 @@ workload: when a stage is slow, the timer is the first suspect.
   (bazel-orfs #1412), not upstreamed.
 - Exception `-to` matched linearly: 17-22 % of `repair_timing` (OpenROAD
   #11933, carried 0145).
+- `read_sdc`/`write_sdc` of a generated SDC: `write_sdc` wrote an
+  exception over `[all_registers]` one `get_cells` per register, 154 MB
+  and 1.65 M lines on XiangShan's MemBlock, read again by every step
+  (37 s, 10 s to write). Carried 0249 writes the standard collection back
+  when the set is exactly it (1.5 KB, 25 s, 1.4 s; bazel-orfs #1672).
+  `read_sdc` called at Tcl's global scope (odb-debug's load, a hand
+  script) compared the command being assembled with `""` once per line
+  and took over 15 min on that SDC; carried 0248 uses a flag. Through
+  ORFS's `log_cmd` it was never slow, so a hand-run `read_sdc` that
+  grinds while the flow's did not is this.
 - ORFS's `report_metrics` at each stage end (up to 4x in grt with
   `DETAILED_METRICS`): full reports, skew, power. bazel-orfs skips it by
   default (`metrics_arguments()`, `private/flow.bzl`) and builds `<stage>_report` on demand (#1543).
