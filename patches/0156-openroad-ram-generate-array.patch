@@ -152,13 +152,13 @@ index ead7122d1a..fd7e24afe4 100644
 +
 +}
 diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
-index 19b04e1b4f..8b2fecea3d 100644
+index 6efd352357..7b55339c37 100644
 --- a/openroad/ram/test/BUILD
 +++ b/openroad/ram/test/BUILD
-@@ -40,6 +40,7 @@ PASSFAIL_TESTS = [
-     "write_mask_groups_asap7",
+@@ -41,6 +41,7 @@ PASSFAIL_TESTS = [
      "fold_ten_groups_asap7",
      "fold_odd_groups_asap7",
+     "read_drive_asap7",
 +    "generate_array_asap7",
  ]
  
@@ -223,6 +223,7 @@ index 0000000000..90fc554d4f
 +}
 +
 +puts "pass"
+
 -- 
 2.53.0
 

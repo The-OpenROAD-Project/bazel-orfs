@@ -18,8 +18,8 @@ timed with. `orfs_module_context` cuts module M's context from it, once:
 the cells of the rest of the design on every reg2reg path that crosses
 M's ports, real cells only, and nothing else (tools/module_sta/
 context_db.tcl). Each iteration then loads that context with read_db
--hier, reads the new M with read_verilog, links it (link_hier_module,
-carried OpenROAD patch 0222) and swaps it in (replace_hier_module, with
+-hier, reads the new M with read_verilog, links it (link_hier_module)
+and swaps it in (replace_hier_module, with
 patch 0223 for a module with children of its own), and times: M's
 endpoints and those of the registers M's outputs reach, each as the whole
 design times it. After synthesis the clocks are ideal and there are no
