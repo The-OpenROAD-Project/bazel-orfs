@@ -1,0 +1,205 @@
+"""A/B measurement of asap7sc7p5t_28 PR #13's 256 added cells on FltRegionModule.
+
+Both arms harden XiangShan's FltRegionModule (`FMulFlt`, `FDivSqrtFlt`, four
+FP issue queues/pipes, and the hardened `FpRegFile` macro) with identical RTL,
+floorplan outline, pin constraints, VT list (`RVT LVT SLVT`), and placement/GRT
+drivers at the 473 ps FO4-equivalent SDC, differing only in `pdk`:
+  - `stock`: `@orfs//flow:asap7` (via `//flow:asap7`)
+  - `added`: `//pdk/asap7:asap7` (composed from `@orfs` + `@asap7sc7p5t_28`)
+
+Seeds 11 and 12 branch from each arm's `floorplan` via `previous_stage` with
+`GPL_RANDOM_SEED`, sharing synthesis and floorplan byte-for-byte.
+"""
+
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//test/coremark_joule/designs/asap7/xiangshan:plan/plan.bzl", "PLAN")
+load(
+    "//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl",
+    "XS_BLOCKS",
+    "XS_ICG_USER_ARGUMENTS",
+    "XS_ICG_USER_SOURCES",
+    "XS_USER_STAGES",
+    "XS_VERILOG",
+    "XS_VT",
+)
+
+_ENTRY = PLAN["macros"]["FltRegionModule"]
+
+_CFG = XS_BLOCKS["FltRegionModule"]
+
+_DROPS = [
+    "CORE_UTILIZATION",
+    "CORE_ASPECT_RATIO",
+    "CORE_MARGIN",
+    "DETAIL_PLACEMENT_ARGS",
+]
+
+_BASE_ARGUMENTS = {
+    k: v
+    for k, v in _CFG["arguments"].items()
+    if k not in _DROPS
+} | {
+    "ASAP7_USE_VT": XS_VT,
+    "CORE_AREA": _ENTRY["CORE_AREA"],
+    "DIE_AREA": _ENTRY["DIE_AREA"],
+    "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+    "OPENROAD_HIERARCHICAL": "1",
+    "SKIP_PIN_ACCESS": "1",
+    "SYNTH_HIERARCHICAL": "0",
+    "SYNTH_KEEP_MODULES": _ENTRY["SYNTH_KEEP_MODULES"],
+}
+
+_SOURCES = {
+    "IO_CONSTRAINTS": ["//test/coremark_joule/designs/asap7/xiangshan:plan/FltRegionModule_pins.tcl"],
+    "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+    "SDC_FILE": [":constraints_473ps.sdc"],
+}
+
+_USER_ARGUMENTS = _CFG["user_arguments"] | XS_ICG_USER_ARGUMENTS
+
+_USER_SOURCES = _CFG["user_sources"] | XS_ICG_USER_SOURCES
+
+_USER_STAGES = {
+    v: s
+    for v, s in XS_USER_STAGES.items()
+    if v in _USER_ARGUMENTS or v in _USER_SOURCES
+}
+
+ARMS = {
+    "stock": "//flow:asap7",
+    "added": "//pdk/asap7:asap7",
+}
+
+EXTRA_SEEDS = [
+    11,
+    12,
+]
+
+[
+    orfs_flow(
+        name = "FltRegionModule",
+        arguments = _BASE_ARGUMENTS if seed == 1 else (_BASE_ARGUMENTS | {"GPL_RANDOM_SEED": str(seed)}),
+        last_stage = "grt",
+        macros = ["//test/coremark_joule/designs/asap7/xiangshan:FpRegFile_generate_abstract"],
+        pdk = pdk,
+        previous_stage = {} if seed == 1 else {"place": ":FltRegionModule_{}_floorplan".format(arm)},
+        sources = _SOURCES,
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        top = "FltRegionModule",
+        user_arguments = _USER_ARGUMENTS,
+        user_sources = _USER_SOURCES,
+        user_stages = _USER_STAGES,
+        variant = arm if seed == 1 else "{}_seed{}".format(arm, seed),
+        verilog_files = XS_VERILOG,
+    )
+    for arm, pdk in ARMS.items()
+    for seed in [1] + EXTRA_SEEDS
+]
+
+# Synthesis-stage probes (seed 1 is shared across seeds).
+[
+    orfs_run(
+        name = "probe_{}_synth".format(arm),
+        src = ":FltRegionModule_{}_synth".format(arm),
+        outs = ["probe_{}_synth.json".format(arm)],
+        arguments = _BASE_ARGUMENTS,
+        script = ":probe.tcl",
+        sources = _SOURCES,
+        tags = ["manual"],
+        user_arguments = {
+            "ARM_NAME": arm,
+            "OUT_JSON": "$(location probe_{}_synth.json)".format(arm),
+            "SEED_NUM": "1",
+            "STAGE_STEM": "1_synth",
+        },
+        variant = arm,
+    )
+    for arm in ARMS
+]
+
+# Global-route probes for seed 1 and extra seeds.
+[
+    orfs_run(
+        name = "probe_{}_seed{}_grt".format(arm, seed),
+        src = ":FltRegionModule_{}_grt".format(
+            arm if seed == 1 else "{}_seed{}".format(arm, seed),
+        ),
+        outs = ["probe_{}_seed{}_grt.json".format(arm, seed)],
+        arguments = _BASE_ARGUMENTS,
+        script = ":probe.tcl",
+        sources = _SOURCES,
+        tags = ["manual"],
+        user_arguments = {
+            "ARM_NAME": arm,
+            "OUT_JSON": "$(location probe_{}_seed{}_grt.json)".format(arm, seed),
+            "SEED_NUM": str(seed),
+            "STAGE_STEM": "5_1_grt",
+        },
+        variant = arm if seed == 1 else "{}_seed{}".format(arm, seed),
+    )
+    for arm in ARMS
+    for seed in [1] + EXTRA_SEEDS
+]
+
+_ALL_PROBES = [
+    ":probe_{}_synth.json".format(arm)
+    for arm in ARMS
+] + [
+    ":probe_{}_seed{}_grt.json".format(arm, seed)
+    for arm in ARMS
+    for seed in [1] + EXTRA_SEEDS
+]
+
+genrule(
+    name = "summary_md",
+    srcs = _ALL_PROBES,
+    outs = ["summary.md"],
+    cmd = "$(execpath :report) " +
+          " ".join(["$(location {})".format(p) for p in _ALL_PROBES]) +
+          " --out $@",
+    tags = ["manual"],
+    tools = [":report"],
+)
+
+# Worst-path decomposition (cell vs wire vs skew) on seed 1 at global route.
+[
+    orfs_run(
+        name = "kpi_{}".format(arm),
+        src = ":FltRegionModule_{}_grt".format(arm),
+        outs = [
+            "kpi_{}.txt".format(arm),
+            "kpi_{}_paths.txt".format(arm),
+        ],
+        arguments = _BASE_ARGUMENTS,
+        script = "//test/coremark_joule/designs/asap7/xiangshan:kpi_run.tcl",
+        sources = _SOURCES,
+        tags = ["manual"],
+        user_arguments = {
+            "KPI_OUT": "$(location kpi_{}.txt)".format(arm),
+            "KPI_PATHS": "$(location kpi_{}_paths.txt)".format(arm),
+            "KPI_STAGE": "grt",
+            "KPI_TARGET_PS": "1000",
+        },
+        variant = arm,
+    )
+    for arm in ARMS
+]
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    main = "report.py",
+)
+
+py_test(
+    name = "report_test",
+    size = "small",
+    srcs = [
+        "report.py",
+        "report_test.py",
+    ],
+    imports = ["."],
+    main = "report_test.py",
+)

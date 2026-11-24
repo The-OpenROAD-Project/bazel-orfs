@@ -1211,6 +1211,7 @@ def _regfile_macro(spec, made, tags, outlines = {}, variant = None, pins = {}):
             tags = tags,
             variant = variant,
             verilog_files = XS_VERILOG,
+            visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__subpackages__"],
         )
     return _abstract(module, variant)
 

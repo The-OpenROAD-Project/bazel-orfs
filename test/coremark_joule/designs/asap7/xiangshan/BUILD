@@ -82,10 +82,12 @@ exports_files(
 # constants into (surgery/).
 exports_files(
     [
+        "kpi_run.tcl",
+        "plan/FltRegionModule_pins.tcl",
         "plan/plan.bzl",
         "plan/plan.json",
     ],
-    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:__pkg__"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__subpackages__"],
 )
 
 # The parent's legalization hook, on the miniature planned parent too:
