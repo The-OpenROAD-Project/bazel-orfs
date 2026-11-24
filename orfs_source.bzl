@@ -167,6 +167,11 @@ ORFS_PATCHES = [
     # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
     # ORFS that carries it.
     Label("//patches:0241-orfs-cts-latency-offsets.patch"),
+    # 0250: SETUP_REPAIR_EFFORT passes -effort low|medium|high to
+    # repair_timing, which tunes its PARALLEL_EVAL policy
+    # (SETUP_REPAIR_PHASES); test:setup_repair_effort_test. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0250-orfs-setup-repair-effort.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
