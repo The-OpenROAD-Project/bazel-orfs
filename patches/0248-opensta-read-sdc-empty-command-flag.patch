@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 24 Nov 2026 09:20:08 +0100
+Subject: [PATCH] sdc: read_sdc tracks an empty command with a flag, not a
+ compare
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+include_file reads a file a line at a time, appending each line to the
+command until it is complete, and asked `$cmd == ""` on every line to
+know whether a command was starting. A command that spans many lines,
+as write_sdc writes an exception over every register (one line per
+object), made that comparison read the growing command once per line.
+
+Read at Tcl's global scope, Tcl did not keep the command's character
+count between lines and every comparison walked the whole command:
+XiangShan's MemBlock synthesis .sdc (1.65 million lines, six exceptions
+over 268,694 registers each) took over 15 minutes in read_sdc, against
+53 s with this change. Read from inside a proc, as ORFS does, it took
+56 s before and after. A flag says whether the command is empty; the
+constraints read are the same.
+
+Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
+OpenROAD whose OpenSTA has it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ tcl/Util.tcl | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/openroad/sta/tcl/Util.tcl b/openroad/sta/tcl/Util.tcl
+index e3d09a2d..b14f53e5 100644
+--- a/openroad/sta/tcl/Util.tcl
++++ b/openroad/sta/tcl/Util.tcl
+@@ -630,6 +630,9 @@ proc include_file { filename echo verbose } {
+         zlib push gunzip $stream
+       }
+       set cmd ""
++      # Whether cmd holds no lines yet: comparing cmd with "" would read the
++      # whole of a command spanning many lines once per line.
++      set cmd_empty 1
+       set error {}
+       set error_traceback {}
+       while {![eof $stream]} {
+@@ -639,7 +642,8 @@ proc include_file { filename echo verbose } {
+             report_line $line
+           }
+         }
+-        if { $cmd == "" } {
++        if { $cmd_empty } {
++          set cmd_empty 0
+           set cmd_start_line $include_line
+           set check_complete 1
+         }
+@@ -653,6 +657,7 @@ proc include_file { filename echo verbose } {
+           set error_code [catch {uplevel \#0 $cmd} result error_options]
+           # cmd consumed
+           set cmd ""
++          set cmd_empty 1
+           # Flush results printed outside tcl to stdout/stderr.
+           fflush
+           switch $error_code {
+-- 
+2.53.0
+
