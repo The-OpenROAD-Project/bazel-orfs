@@ -3,6 +3,11 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
+exports_files(
+    ["check_binary_liberty.tcl"],
+    visibility = ["//test:__subpackages__"],
+)
+
 PDKS = [
     "asap7",
     "gf180",

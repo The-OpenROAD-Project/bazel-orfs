@@ -441,10 +441,10 @@ def platform_config(ctx):
     through the platform's own LIB_FILES unchanged.
     """
     if hasattr(ctx.attr, "pdk"):
-        return ctx.attr.pdk[PdkInfo].config.files.to_list()[0]
+        return ctx.attr.pdk[PdkInfo].config
     if binary_liberty(ctx):
         return ctx.attr.src[PdkInfo].openroad_config
-    return ctx.attr.src[PdkInfo].config.files.to_list()[0]
+    return ctx.attr.src[PdkInfo].config
 
 def binary_liberty(ctx):
     """Whether a stage reads orfs_pdk's binary liberty platform."""

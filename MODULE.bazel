@@ -26,6 +26,10 @@ bazel_dep(name = "gperftools", version = "2.19.1", dev_dependency = True)
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 
+# For //pdk/asap7: unpacks asap7sc7p5t_28's .lib.7z files into .lib.gz
+# hermetically without requiring a host 7z install.
+bazel_dep(name = "libarchive", version = "3.8.1.bcr.3")
+
 bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
 local_path_override(
     module_name = "mock-klayout",
@@ -822,6 +826,13 @@ use_repo(orfs, "gnumake")
 # root -- owns the patches. See orfs_source.bzl.
 use_repo(orfs, "orfs")
 use_repo(orfs, "orfs_variable_metadata")
+
+# Upstream asap7sc7p5t_28 standard-cell views (PR #13: 64 added cells across
+# RVT, LVT, SLVT and SRAM), composed with @orfs's platform scripts in
+# //pdk/asap7 without vendoring or patching binaries into @orfs.
+asap7sc7p5t_28 = use_repo_rule("//pdk/asap7:repos.bzl", "asap7sc7p5t_28")
+
+asap7sc7p5t_28(name = "asap7sc7p5t_28")
 
 # @orfs's design BUILD files load design() from @orfs_designs, which ORFS
 # used to declare in its own MODULE.bazel. With ORFS consumed as an

@@ -73,6 +73,7 @@ load(
     _orfs_arguments = "orfs_arguments",
     _orfs_macro = "orfs_macro",
     _orfs_pdk = "orfs_pdk",
+    _orfs_pdk_overlay = "orfs_pdk_overlay",
     _orfs_run = "orfs_run",
     _orfs_run_executable = "orfs_run_executable",
     _orfs_test = "orfs_test",
@@ -136,6 +137,7 @@ flow_provides = _flow_provides
 
 # Rules
 orfs_pdk = _orfs_pdk
+orfs_pdk_overlay = _orfs_pdk_overlay
 orfs_macro = _orfs_macro
 orfs_macro_tiers = _orfs_macro_tiers
 orfs_macro_view = _orfs_macro_view

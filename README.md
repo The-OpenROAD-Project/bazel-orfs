@@ -521,6 +521,7 @@ once and commit what it lists: [tools/agent](tools/agent/README.md).
 | Tool | Description | Documentation |
 |------|-------------|---------------|
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
+| Composed ASAP7 PDK | ASAP7 overlaid from `asap7sc7p5t_28` (+256 cells) | [pdk/asap7](pdk/asap7/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
 | Equivalence checking (LEC) | kepler-formal logic equivalence, for bazel-orfs's own generators (dev-only) | [test/lec](test/lec/README.md) |
 

@@ -278,12 +278,20 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
 
 # --- PDK rule ---
 
+def _label_package_prefix(label):
+    return "/".join([p for p in [label.workspace_root, label.package] if p]) + "/"
+
+def _file_relative_to_label(label, f):
+    """The path of `f` inside `label`'s package, whether source or generated."""
+    rel = f.path[len(f.root.path) + 1:] if f.root.path else f.path
+    prefix = _label_package_prefix(label)
+    if not rel.startswith(prefix):
+        fail("{}: {} is not under the package {}".format(label, f.path, prefix))
+    return rel[len(prefix):]
+
 def _pdk_relative_path(ctx, f):
     """The path of a PDK file inside the orfs_pdk's package."""
-    prefix = "/".join([p for p in [ctx.label.workspace_root, ctx.label.package] if p]) + "/"
-    if not f.path.startswith(prefix):
-        fail("{}: {} is not under the orfs_pdk's package {}".format(ctx.label, f.path, prefix))
-    return f.path[len(prefix):]
+    return _file_relative_to_label(ctx.label, f)
 
 def _pdk_openroad_view(ctx):
     """The platform as the OpenROAD stages see it: every .lib binary.
@@ -339,7 +347,7 @@ def _pdk_impl(ctx):
             name = ctx.attr.name,
             files = depset(ctx.files.srcs),
             libs = depset(ctx.files.libs),
-            config = ctx.attr.config,
+            config = ctx.file.config,
             openroad_files = depset(openroad_files),
             openroad_config = openroad_config,
         ),
@@ -362,6 +370,149 @@ orfs_pdk = rule(
         "openroad": attr.label(
             doc = "OpenROAD binary that writes the binary liberty files. " +
                   "Its format version must be one the stages' OpenROAD reads.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = CONFIG_OPENROAD,
+        ),
+    },
+)
+
+def _strip_pdk_tree_prefix(base_name, rel):
+    src_prefix = base_name + "_src/"
+    if rel.startswith(src_prefix):
+        return rel[len(src_prefix):]
+    return rel
+
+def _pdk_overlay_impl(ctx):
+    base_info = ctx.attr.base[PdkInfo]
+    base_label = ctx.attr.base.label
+    base_blib_prefix = base_info.name + "_blib/"
+
+    src_map = {}
+    lib_rels = {}
+    for f in base_info.files.to_list():
+        rel = _strip_pdk_tree_prefix(base_info.name, _file_relative_to_label(base_label, f))
+        src_map[rel] = f
+    for f in base_info.libs.to_list():
+        rel = _strip_pdk_tree_prefix(base_info.name, _file_relative_to_label(base_label, f))
+        src_map[rel] = f
+        lib_rels[rel] = True
+
+    base_blib_map = {}
+    for bf in base_info.openroad_files.to_list():
+        bf_rel = _file_relative_to_label(base_label, bf)
+        if bf_rel.startswith(base_blib_prefix):
+            base_blib_map[bf_rel[len(base_blib_prefix):]] = bf
+
+    config_rel = (
+        _strip_pdk_tree_prefix(base_info.name, _file_relative_to_label(base_label, base_info.config)) if base_info.config else None
+    )
+    if ctx.file.config:
+        if not config_rel:
+            fail("{}: base PDK has no config; pass config via overlay_srcs".format(ctx.label))
+        src_map[config_rel] = ctx.file.config
+
+    for target, rel in ctx.attr.overlay_srcs.items():
+        files = target.files.to_list()
+        if len(files) != 1:
+            fail("{}: overlay_srcs entry {} must produce exactly 1 file, got {}".format(ctx.label, target.label, len(files)))
+        src_map[rel] = files[0]
+
+    overridden_libs = {}
+    for target, rel in ctx.attr.overlay_libs.items():
+        files = target.files.to_list()
+        if len(files) != 1:
+            fail("{}: overlay_libs entry {} must produce exactly 1 file, got {}".format(ctx.label, target.label, len(files)))
+        src_map[rel] = files[0]
+        lib_rels[rel] = True
+        overridden_libs[rel] = True
+
+    script = None
+    if overridden_libs:
+        script = ctx.actions.declare_file(ctx.attr.name + "_blib.tcl")
+        ctx.actions.write(script, "write_liberty_binary $::env(LIB) $::env(BLIB)\n")
+
+    staged_srcs = []
+    staged_libs = []
+    openroad_files = []
+    staged_config = None
+    openroad_config = None
+
+    for rel in sorted(src_map.keys()):
+        src_file = src_map[rel]
+        text_out = ctx.actions.declare_file("{}_src/{}".format(ctx.attr.name, rel))
+        ctx.actions.symlink(output = text_out, target_file = src_file)
+        staged_srcs.append(text_out)
+        if rel in lib_rels:
+            staged_libs.append(text_out)
+        if config_rel and rel == config_rel:
+            staged_config = text_out
+
+        blib_out = ctx.actions.declare_file("{}_blib/{}".format(ctx.attr.name, rel))
+        if rel in lib_rels:
+            if rel not in overridden_libs and rel in base_blib_map:
+                ctx.actions.symlink(output = blib_out, target_file = base_blib_map[rel])
+            else:
+                if not script:
+                    script = ctx.actions.declare_file(ctx.attr.name + "_blib.tcl")
+                    ctx.actions.write(script, "write_liberty_binary $::env(LIB) $::env(BLIB)\n")
+                ctx.actions.run(
+                    executable = ctx.executable.openroad,
+                    arguments = ["-no_init", "-no_splash", "-exit", script.path],
+                    inputs = [src_file, script],
+                    outputs = [blib_out],
+                    env = {"BLIB": blib_out.path, "LIB": src_file.path},
+                    mnemonic = "WriteLibertyBinary",
+                    progress_message = "Writing binary liberty %{output}",
+                )
+        else:
+            ctx.actions.symlink(output = blib_out, target_file = src_file)
+        if config_rel and rel == config_rel:
+            openroad_config = blib_out
+        openroad_files.append(blib_out)
+
+    return [
+        DefaultInfo(
+            files = depset(staged_srcs),
+        ),
+        PdkInfo(
+            name = ctx.attr.name,
+            files = depset(staged_srcs),
+            libs = depset(staged_libs),
+            config = staged_config,
+            openroad_files = depset(openroad_files),
+            openroad_config = openroad_config,
+        ),
+    ]
+
+orfs_pdk_overlay = rule(
+    implementation = _pdk_overlay_impl,
+    doc = "Compose an orfs_pdk from a base PDK plus added or replaced files " +
+          "from other repositories, reusing the base PDK's binary liberties " +
+          "for unchanged .lib files.",
+    attrs = {
+        "base": attr.label(
+            doc = "Base orfs_pdk target providing PdkInfo.",
+            mandatory = True,
+            providers = [PdkInfo],
+        ),
+        "config": attr.label(
+            doc = "Optional replacement config.mk.",
+            allow_single_file = ["config.mk"],
+        ),
+        "overlay_srcs": attr.label_keyed_string_dict(
+            doc = "Map of single-file targets to PDK-relative paths (e.g. " +
+                  "'platforms/asap7/lef/...') to add or replace.",
+            allow_files = True,
+        ),
+        "overlay_libs": attr.label_keyed_string_dict(
+            doc = "Map of single-file liberty targets to PDK-relative paths " +
+                  "to add or replace in both srcs and libs.",
+            allow_files = True,
+        ),
+        "openroad": attr.label(
+            doc = "OpenROAD binary that writes binary liberty files for overlay_libs.",
             executable = True,
             allow_files = True,
             cfg = "exec",

@@ -1,0 +1,109 @@
+"""ASAP7 PDK composed in Bazel from @orfs platform scripts and @asap7sc7p5t_28.
+
+Rather than vendoring or binary-patching the 256 new standard cells from
+The-OpenROAD-Project/asap7sc7p5t_28#13 into @orfs, `:asap7` overlays the
+upstream cell views (1x LEFs, GDS, Verilog and ADDED NLDM/CCS Liberty files)
+onto `@orfs//flow:asap7` and reuses `@orfs//flow:asap7`'s binary liberties
+for every unchanged library.
+
+Select per-flow with `pdk = "@bazel-orfs//pdk/asap7"` or workspace-wide via
+`orfs.default(pdk = "@bazel-orfs//pdk/asap7")`.
+"""
+
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//:openroad.bzl", "orfs_pdk_overlay")
+load(":rules.bzl", "un7z_gz")
+
+exports_files(
+    ["inject_vt_obs.py"],
+    visibility = ["//test:__subpackages__"],
+)
+
+cc_binary(
+    name = "un7z_gz_bin",
+    srcs = ["un7z_gz.cc"],
+    visibility = ["//visibility:public"],
+    deps = ["@libarchive//libarchive"],
+)
+
+py_binary(
+    name = "inject_vt_obs",
+    srcs = ["inject_vt_obs.py"],
+    main = "inject_vt_obs.py",
+)
+
+[
+    genrule(
+        name = "lef_{}".format(vt),
+        srcs = ["@asap7sc7p5t_28//:LEF/asap7sc7p5t_28_{}_1x_220121a.lef".format(vt)],
+        outs = ["lef/asap7sc7p5t_28_{}_1x_220121a.lef".format(vt)],
+        cmd = "$(execpath :inject_vt_obs) --vt {} --src $< --out $@".format(vt),
+        tools = [":inject_vt_obs"],
+    )
+    for vt in ("L", "R", "SL", "SRAM")
+]
+
+genrule(
+    name = "config_mk",
+    srcs = [
+        "@orfs//flow:platforms/asap7/config.mk",
+        "config.mk.patch",
+    ],
+    outs = ["config.mk"],
+    cmd = "cp $(location @orfs//flow:platforms/asap7/config.mk) $@ && " +
+          "chmod u+w $@ && " +
+          "patch -s $@ $(location config.mk.patch)",
+)
+
+_NLDM_LIBS = [
+    "asap7sc7p5t_ADDED_{}_{}_nldm_261116".format(vt, corner)
+    for vt in ("LVT", "RVT", "SLVT", "SRAM")
+    for corner in ("FF", "SS", "TT")
+]
+
+_CCS_LIBS = [
+    "asap7sc7p5t_ADDED_RVT_FF_ccs_261116",
+]
+
+[
+    un7z_gz(
+        name = stem,
+        src = "@asap7sc7p5t_28//:LIB/NLDM/{}.lib.7z".format(stem),
+        out = "lib/NLDM/{}.lib.gz".format(stem),
+    )
+    for stem in _NLDM_LIBS
+]
+
+[
+    un7z_gz(
+        name = stem,
+        src = "@asap7sc7p5t_28//:LIB/CCS/{}.lib.7z".format(stem),
+        out = "lib/CCS/{}.lib.gz".format(stem),
+    )
+    for stem in _CCS_LIBS
+]
+
+orfs_pdk_overlay(
+    name = "asap7",
+    base = "@orfs//flow:asap7",
+    config = ":config.mk",
+    overlay_libs = {
+        ":{}".format(stem): "platforms/asap7/lib/NLDM/{}.lib.gz".format(stem)
+        for stem in _NLDM_LIBS
+    } | {
+        ":{}".format(stem): "platforms/asap7/lib/CCS/{}.lib.gz".format(stem)
+        for stem in _CCS_LIBS
+    },
+    overlay_srcs = {
+        "@asap7sc7p5t_28//:GDS/asap7sc7p5t_28_{}_220121a.gds".format(vt): "platforms/asap7/gds/asap7sc7p5t_28_{}_220121a.gds".format(vt)
+        for vt in ("L", "R", "SL", "SRAM")
+    } | {
+        ":lef_{}".format(vt): "platforms/asap7/lef/asap7sc7p5t_28_{}_1x_220121a.lef".format(vt)
+        for vt in ("L", "R", "SL", "SRAM")
+    } | {
+        "@asap7sc7p5t_28//:Verilog/asap7sc7p5t_ADDED_{}_TT_261116.v".format(vt): "platforms/asap7/verilog/stdcell/asap7sc7p5t_ADDED_{}_TT_261116.v".format(vt)
+        for vt in ("LVT", "RVT", "SLVT", "SRAM")
+    },
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,31 @@
+--- a/config.mk
++++ b/config.mk
+@@ -94,22 +94,26 @@
+ 			           $(LIB_DIR)/asap7sc7p5t_INVBUF_PLACEHOLDERVT_FF_nldm_220122.lib.gz \
+ 			           $(LIB_DIR)/asap7sc7p5t_OA_PLACEHOLDERVT_FF_nldm_211120.lib.gz \
+ 			           $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_FF_nldm_211120.lib.gz \
++			           $(LIB_DIR)/asap7sc7p5t_ADDED_PLACEHOLDERVT_FF_nldm_261116.lib.gz \
+ 			           $(LIB_DIR)/asap7sc7p5t_SEQ_PLACEHOLDERVT_FF_nldm_220123.lib
+ export BC_CCS_LIB_FILES_T        = $(LIB_DIR)/asap7sc7p5t_AO_PLACEHOLDERVT_FF_ccs_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_INVBUF_PLACEHOLDERVT_FF_ccs_220122.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_OA_PLACEHOLDERVT_FF_ccs_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_FF_ccs_211120.lib.gz \
++				   $(LIB_DIR)/asap7sc7p5t_ADDED_PLACEHOLDERVT_FF_ccs_261116.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_SEQ_PLACEHOLDERVT_FF_ccs_220123.lib
+ export WC_NLDM_LIB_FILES_T       = $(LIB_DIR)/asap7sc7p5t_AO_PLACEHOLDERVT_SS_nldm_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_INVBUF_PLACEHOLDERVT_SS_nldm_220122.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_OA_PLACEHOLDERVT_SS_nldm_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_SEQ_PLACEHOLDERVT_SS_nldm_220123.lib \
+-				   $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_SS_nldm_211120.lib.gz
++				   $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_SS_nldm_211120.lib.gz \
++				   $(LIB_DIR)/asap7sc7p5t_ADDED_PLACEHOLDERVT_SS_nldm_261116.lib.gz
+ export TC_NLDM_LIB_FILES_T       = $(LIB_DIR)/asap7sc7p5t_AO_PLACEHOLDERVT_TT_nldm_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_INVBUF_PLACEHOLDERVT_TT_nldm_220122.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_OA_PLACEHOLDERVT_TT_nldm_211120.lib.gz \
+ 				   $(LIB_DIR)/asap7sc7p5t_SEQ_PLACEHOLDERVT_TT_nldm_220123.lib \
+-				   $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_TT_nldm_211120.lib.gz
++				   $(LIB_DIR)/asap7sc7p5t_SIMPLE_PLACEHOLDERVT_TT_nldm_211120.lib.gz \
++				   $(LIB_DIR)/asap7sc7p5t_ADDED_PLACEHOLDERVT_TT_nldm_261116.lib.gz
+ export FILL_CELLS_T              = FILLERxp5_ASAP7_75t_ \
+                                    FILLER_ASAP7_75t_ \
+                                    DECAPx1_ASAP7_75t_ \

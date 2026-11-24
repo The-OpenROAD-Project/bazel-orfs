@@ -1,0 +1,76 @@
+"""Tests for //pdk/asap7:asap7 composed PDK."""
+
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+py_test(
+    name = "inject_vt_obs_test",
+    size = "small",
+    srcs = [
+        "inject_vt_obs_test.py",
+        "//pdk/asap7:inject_vt_obs.py",
+    ],
+    imports = ["../../pdk/asap7"],
+    main = "inject_vt_obs_test.py",
+)
+
+py_test(
+    name = "pdk_asap7_test",
+    size = "small",
+    srcs = ["pdk_asap7_test.py"],
+    args = [
+        "$(locations //pdk/asap7:asap7)",
+        "--",
+        "$(locations @orfs//flow:asap7)",
+    ],
+    data = [
+        "//pdk/asap7",
+        "@orfs//flow:asap7",
+    ],
+)
+
+orfs_flow(
+    name = "lb_32x128_asap7_added",
+    arguments = {
+        "ASAP7_USE_VT": "RVT LVT SLVT",
+        "CORE_UTILIZATION": "3",
+        "GND_NETS_VOLTAGES": "",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "PLACE_DENSITY": "0.40",
+        "PWR_NETS_VOLTAGES": "",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_REPORT_METRICS": "1",
+        "TAPCELL_TCL": "",
+    },
+    pdk = "//pdk/asap7:asap7",
+    sources = {
+        "SDC_FILE": ["//test:constraints-sram-sky130hd.sdc"],
+    },
+    tags = ["manual"],
+    top = "lb_32x128",
+    verilog_files = ["//test:mock/lb_32x128.sv"],
+)
+
+orfs_run(
+    name = "lb_32x128_asap7_added_binary_liberty",
+    src = ":lb_32x128_asap7_added_floorplan",
+    outs = ["lb_32x128_asap7_added_binary_liberty_ok.txt"],
+    script = "//test/smoketest:check_binary_liberty.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_asap7_added_binary_liberty_ok.txt",
+    },
+)
+
+build_test(
+    name = "lb_32x128_asap7_added_build_test",
+    tags = ["manual"],
+    targets = [
+        ":lb_32x128_asap7_added_binary_liberty",
+        ":lb_32x128_asap7_added_generate_abstract",
+    ],
+)
