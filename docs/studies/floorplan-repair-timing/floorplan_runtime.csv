@@ -1,0 +1,6 @@
+block,base_floorplan_s,base_fp_repair_s,fp_skip_floorplan_s,fp_skip_fp_repair_s
+MemBlock,1779,858.02,1577,0
+Frontend,1572,443.62,1152,0
+CoupledL2,437,190.98,217,0
+VecRegionModule,1172,473.17,717,0
+FltRegionModule,128,4.8,118,0

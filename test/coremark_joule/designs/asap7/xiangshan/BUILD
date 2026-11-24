@@ -5,7 +5,7 @@ load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit", "xs_
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "shard_replays", "stage_power", "stage_power_shards", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
 load(":shards.bzl", "XS_BLOCK_UNITS", "XS_COUNT_OUTPUTS", "XS_FROM_RESET", "XS_REPLAY_CUTS", "XS_REPLAY_VOPTS", "XS_SAIF_SCOPE", "XS_SHARDS", "XS_SHARD_SIMS", "XS_TRACE_ROOT", "xs_replay")
-load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xs_regfile_modules")
+load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xiangshan_repair_arms", "xs_regfile_modules")
 
 exports_files(["constraints.sdc"])
 
@@ -132,6 +132,27 @@ exports_files(
 # plus _REGFILE_MARGIN_UM on each side (xiangshan.bzl).
 xiangshan_flow(
     name = "XSTile",
+    plan = PLAN,
+)
+
+# The floorplan repair_timing study: each planned block through global
+# route with the floorplan's repair_timing skipped (fp_skip), and skipped
+# with global route's repair on the parallel policy (fp_skip_grt_par),
+# against the blocks above; base_seed2 is the base flow with another
+# global placement seed, for the noise.
+xiangshan_repair_arms(
+    arms = {
+        "base_seed2": {
+            "place": {"GPL_RANDOM_SEED": "2"},
+        },
+        "fp_skip": {
+            "floorplan": {"SKIP_FLOORPLAN_REPAIR_TIMING": "1"},
+        },
+        "fp_skip_grt_par": {
+            "floorplan": {"SKIP_FLOORPLAN_REPAIR_TIMING": "1"},
+            "grt": {"SETUP_REPAIR_PHASES": "PARALLEL_EVAL"},
+        },
+    },
     plan = PLAN,
 )
 

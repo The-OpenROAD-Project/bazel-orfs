@@ -1464,6 +1464,72 @@ def _kpi(part, stage, arguments, sources, tags, variant = None):
         variant = variant,
     )
 
+def _block_cfg(block, blocks):
+    cfg = blocks.get(block, XS_BLOCK_DEFAULT)
+    if block in XS_ANNEAL_CHANNEL_UM:
+        cfg = dict(cfg, user_arguments = cfg["user_arguments"] | {"ANNEAL_CHANNEL_UM": XS_ANNEAL_CHANNEL_UM[block]})
+    return cfg
+
+def _block_inputs(plan, block, blocks, plan_dir):
+    """A planned block's arguments, sources and register-file modules."""
+    cfg = _block_cfg(block, blocks)
+    entry = plan["macros"][block]
+    arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
+    modules = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+    return arguments, sources, modules
+
+def _block_mock(plan, block, plan_dir):
+    """The parent's footprint of a block: its outline scaled so its core
+    holds the block's content at the plan's block_density, and its pins."""
+    entry = plan["macros"][block]
+    if "MOCK_AREA" not in entry:
+        return {}
+    return {
+        "mock_area": float(entry["MOCK_AREA"]),
+        "mock_sources": {"IO_CONSTRAINTS": [":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
+    }
+
+def _block_extracted(plan, block, blocks, arguments, sources):
+    """A block's Verilog, arguments, sources, user arguments and user
+    sources, with its arrays extracted."""
+    cfg = _block_cfg(block, blocks)
+    verilog, arguments, sources, user_arguments = _extracted(block, arguments, sources, cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS)
+    return verilog, arguments, sources, user_arguments, cfg["user_sources"] | XS_ICG_USER_SOURCES
+
+def xiangshan_repair_arms(plan, arms, blocks = XS_BLOCKS, plan_dir = "plan", tags = ["manual"]):
+    """Each planned block again as a variant per arm, through global route.
+
+    arms maps a variant name to stage_arguments merged over the block's
+    own. An arm shares the block's synthesis and its register-file macros
+    with the base flow, so only floorplan through global route differs.
+    Built for the floorplan repair_timing study; the parent is not built.
+    """
+    for block in sorted(plan["macros"].keys()):
+        arguments, sources, modules = _block_inputs(plan, block, blocks, plan_dir)
+        regfiles = [_abstract(m.split(":")[-1].removesuffix(".regfile"), None) for m in modules]
+        verilog, arguments, sources, user_arguments, user_sources = _block_extracted(plan, block, blocks, arguments, sources)
+        for variant, stage_arguments in arms.items():
+            merged = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}}
+            for stage, extra in stage_arguments.items():
+                merged[stage] = merged.get(stage, {}) | extra
+            orfs_flow(
+                name = block,
+                abstract_stage = "grt",
+                arguments = arguments,
+                macros = regfiles,
+                pdk = "//flow:asap7",
+                previous_stage = {"floorplan": ":%s_synth" % block},
+                sources = sources,
+                stage_arguments = merged,
+                tags = tags,
+                user_arguments = user_arguments,
+                user_sources = user_sources,
+                user_stages = _user_stages(user_arguments, user_sources),
+                variant = variant,
+                verilog_files = verilog,
+                **_block_mock(plan, block, plan_dir)
+            )
+
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", variant = None):
     """The plan's blocks, each implemented through global route, then the parent.
 
@@ -1507,12 +1573,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 module = m.split(":")[-1].removesuffix(".regfile")
                 pins[module] = ":%s/%s/%s_pins.tcl" % (outdir, block, module)
     for block in macros:
-        cfg = blocks.get(block, XS_BLOCK_DEFAULT)
-        if block in XS_ANNEAL_CHANNEL_UM:
-            cfg = dict(cfg, user_arguments = cfg["user_arguments"] | {"ANNEAL_CHANNEL_UM": XS_ANNEAL_CHANNEL_UM[block]})
-        entry = plan["macros"][block]
-        arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
-        modules = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+        arguments, sources, modules = _block_inputs(plan, block, blocks, plan_dir)
         if variant and not modules:
             # nothing planned: its macros would be fixed where the base
             # flow put them, so the variant's parent reads the base flow's
@@ -1528,14 +1589,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         # core holds the block's content at the plan's block_density; the
         # mocked abstract carries that outline and its pins, the block's own
         # flow its timing. The block's own density is its own concern.
-        mock = {}
-        if "MOCK_AREA" in entry:
-            mock = {
-                "mock_area": float(entry["MOCK_AREA"]),
-                "mock_sources": {"IO_CONSTRAINTS": [":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
-            }
-        verilog, arguments, sources, user_arguments = _extracted(block, arguments, sources, cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS)
-        user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES
+        mock = _block_mock(plan, block, plan_dir)
+        verilog, arguments, sources, user_arguments, user_sources = _block_extracted(plan, block, blocks, arguments, sources)
         orfs_flow(
             name = block,
             abstract_stage = "grt",
