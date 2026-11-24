@@ -1,0 +1,489 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 24 Nov 2026 09:26:45 +0100
+Subject: [PATCH] sdc: write_sdc writes a standard collection an exception
+ names exactly
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A constraint written with a standard collection, as asap7's platform
+SDC writes its I/O and register budgets,
+
+  set_max_delay -from [all_registers] -to [all_outputs] ...
+
+is stored as the objects the collection named, and write_sdc wrote them
+back one get_cells or get_ports at a time. On XiangShan's MemBlock that
+is six exceptions over 268,694 registers and 5,000 ports: a 154 MB .sdc
+of 1.65 million lines, read again by every later step.
+
+Where an exception's -from or -to is exactly [all_registers], [all_outputs],
+[all_inputs -no_clocks] or [all_inputs], the collection is written
+instead; any other set is written as before. Read back on the same
+netlist the collection names the same objects. all_registers without
+options is every leaf instance with a register clock pin, which the
+network answers without a timing graph, so writing builds none;
+all_inputs -no_clocks is decided by the clocks, which write_sdc writes
+before the exceptions.
+
+MemBlock's synthesis .sdc goes from 154 MB to 1.5 KB. Read with the
+read_sdc fix beside it, read_sdc took 24.0 s instead of 37.3 s and the
+timing update after it 42.3 s instead of 65.9 s; worst and total
+negative slack are the same, and writing the constraints back gives
+byte-identical output either way.
+
+sdc_write_collections checks all four collections and that a subset of
+the registers is still written as a list. The exception tests whose
+written SDC named both outputs of their design now read
+-to [all_outputs].
+
+Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
+OpenROAD whose OpenSTA has it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ sdc/WriteSdc.cc                           | 94 +++++++++++++++++++++++
+ sdc/WriteSdcPvt.hh                        | 13 ++++
+ sdc/test/CMakeLists.txt                   |  1 +
+ sdc/test/sdc_exc_override1.sdcok          |  6 +-
+ sdc/test/sdc_exc_override2.sdcok          |  6 +-
+ sdc/test/sdc_exc_override3.sdcok          |  6 +-
+ sdc/test/sdc_exc_override_unset.sdcok     |  6 +-
+ sdc/test/sdc_exc_thru_complex1.sdcok      |  3 +-
+ sdc/test/sdc_exc_thru_complex2.sdcok      |  3 +-
+ sdc/test/sdc_exc_thru_complex3.sdcok      |  3 +-
+ sdc/test/sdc_exc_thru_complex_unset.sdcok |  3 +-
+ sdc/test/sdc_exception_thru1.sdcok        |  3 +-
+ sdc/test/sdc_exception_thru2.sdcok        |  3 +-
+ sdc/test/sdc_exception_thru3.sdcok        |  3 +-
+ sdc/test/sdc_write_collections.ok         | 28 +++++++
+ sdc/test/sdc_write_collections.tcl        | 19 +++++
+ 16 files changed, 170 insertions(+), 30 deletions(-)
+ create mode 100644 sdc/test/sdc_write_collections.ok
+ create mode 100644 sdc/test/sdc_write_collections.tcl
+
+diff --git a/openroad/sta/sdc/WriteSdc.cc b/openroad/sta/sdc/WriteSdc.cc
+index abc70e67..1cbf6dea 100644
+--- a/openroad/sta/sdc/WriteSdc.cc
++++ b/openroad/sta/sdc/WriteSdc.cc
+@@ -27,6 +27,7 @@
+ #include <algorithm>
+ #include <ctime>
+ #include <cstring>
++#include <memory>
+ #include <set>
+ #include <string>
+ #include <string_view>
+@@ -1331,6 +1332,11 @@ WriteSdc::writeExceptionFromTo(ExceptionFromTo *from_to,
+   else if (rf == RiseFallBoth::fall())
+     rf_prefix = "-fall_";
+   sta::print(stream_, "\\\n    {}{} ", rf_prefix, from_to_key);
++  std::string_view collection = standardCollection(from_to);
++  if (!collection.empty()) {
++    sta::print(stream_, "{}", collection);
++    return;
++  }
+   bool multi_objs =
+     ((from_to->pins() ? from_to->pins()->size() : 0)
+      + (from_to->clks() ? from_to->clks()->size() : 0)
+@@ -1362,6 +1368,94 @@ WriteSdc::writeExceptionFromTo(ExceptionFromTo *from_to,
+     sta::print(stream_, "]");
+ }
+ 
++// A generated SDC names every register of an exception like
++// set_max_delay -from [all_registers] one at a time; on a large design that
++// is millions of lines that read_sdc has to look up again. Where the
++// objects are exactly a standard collection, the collection is written:
++// read back on the same netlist it names the same objects.
++std::string_view
++WriteSdc::standardCollection(ExceptionFromTo *from_to) const
++{
++  if (!top_instance_
++      || (from_to->clks() && !from_to->clks()->empty()))
++    return {};
++  const PinSet *pins = from_to->pins();
++  const InstanceSet *insts = from_to->instances();
++  size_t pin_count = pins ? pins->size() : 0;
++  size_t inst_count = insts ? insts->size() : 0;
++  if (inst_count > 1 && pin_count == 0) {
++    if (*insts == allRegisters())
++      return "[all_registers]";
++  }
++  else if (pin_count > 1 && inst_count == 0) {
++    if (*pins == allOutputPins())
++      return "[all_outputs]";
++    if (*pins == allInputPins(true))
++      return "[all_inputs -no_clocks]";
++    if (*pins == allInputPins(false))
++      return "[all_inputs]";
++  }
++  return {};
++}
++
++// all_registers with no options: every leaf instance with a register clock
++// pin, as the graph collects its register clock vertices (Graph::makeVertex)
++// and FindRegVisitor::visitRegs returns their instances. The network alone
++// answers it, so writing does not build a graph.
++const InstanceSet &
++WriteSdc::allRegisters() const
++{
++  if (!all_registers_) {
++    all_registers_ = std::make_unique<InstanceSet>(network_);
++    LeafInstanceIterator *inst_iter = network_->leafInstanceIterator();
++    while (inst_iter->hasNext()) {
++      const Instance *inst = inst_iter->next();
++      InstancePinIterator *pin_iter = network_->pinIterator(inst);
++      while (pin_iter->hasNext()) {
++        const Pin *pin = pin_iter->next();
++        if (!network_->direction(pin)->isPowerGround()
++            && network_->isRegClkPin(pin)) {
++          all_registers_->insert(inst);
++          break;
++        }
++      }
++      delete pin_iter;
++    }
++    delete inst_iter;
++  }
++  return *all_registers_;
++}
++
++const PinSet &
++WriteSdc::allInputPins(bool no_clks) const
++{
++  std::unique_ptr<PinSet> &pins = no_clks ? all_inputs_no_clks_ : all_inputs_;
++  if (!pins)
++    pins = topPins(sdc_->allInputs(no_clks));
++  return *pins;
++}
++
++const PinSet &
++WriteSdc::allOutputPins() const
++{
++  if (!all_outputs_)
++    all_outputs_ = topPins(sdc_->allOutputs());
++  return *all_outputs_;
++}
++
++std::unique_ptr<PinSet>
++WriteSdc::topPins(const PortSeq &ports) const
++{
++  auto pins = std::make_unique<PinSet>(network_);
++  Instance *top = network_->topInstance();
++  for (const Port *port : ports) {
++    const Pin *pin = network_->findPin(top, port);
++    if (pin)
++      pins->insert(pin);
++  }
++  return pins;
++}
++
+ void
+ WriteSdc::writeExceptionThru(ExceptionThru *thru) const
+ {
+diff --git a/openroad/sta/sdc/WriteSdcPvt.hh b/openroad/sta/sdc/WriteSdcPvt.hh
+index e3572be5..935c16dc 100644
+--- a/openroad/sta/sdc/WriteSdcPvt.hh
++++ b/openroad/sta/sdc/WriteSdcPvt.hh
+@@ -24,6 +24,7 @@
+ 
+ #pragma once
+ 
++#include <memory>
+ #include <string>
+ #include <string_view>
+ 
+@@ -120,6 +121,13 @@ public:
+                             std::string_view from_to_key,
+                             bool map_hpin_to_drvr) const;
+   void writeExceptionThru(ExceptionThru *thru) const;
++  // all_registers, all_inputs [-no_clocks] or all_outputs when from_to
++  // names exactly its objects, else empty.
++  std::string_view standardCollection(ExceptionFromTo *from_to) const;
++  const InstanceSet &allRegisters() const;
++  const PinSet &allInputPins(bool no_clks) const;
++  const PinSet &allOutputPins() const;
++  std::unique_ptr<PinSet> topPins(const PortSeq &ports) const;
+   void mapThruHpins(ExceptionThru *thru,
+                     PinSeq &pins) const;
+   void writeDataChecks() const;
+@@ -277,6 +285,11 @@ protected:
+   size_t instance_name_length_;
+   Cell *cell_;
+   gzFile stream_;
++  // The standard collections, made on first use.
++  mutable std::unique_ptr<InstanceSet> all_registers_;
++  mutable std::unique_ptr<PinSet> all_inputs_;
++  mutable std::unique_ptr<PinSet> all_inputs_no_clks_;
++  mutable std::unique_ptr<PinSet> all_outputs_;
+ };
+ 
+ } // namespace sta
+diff --git a/openroad/sta/sdc/test/CMakeLists.txt b/openroad/sta/sdc/test/CMakeLists.txt
+index 5f398b36..c5638eba 100644
+--- a/openroad/sta/sdc/test/CMakeLists.txt
++++ b/openroad/sta/sdc/test/CMakeLists.txt
+@@ -40,6 +40,7 @@ sta_module_tests("sdc"
+     write_options
+     write_read
+     write_rise_fall_min_max
++    write_collections
+     write_roundtrip
+     write_roundtrip_full
+ )
+diff --git a/openroad/sta/sdc/test/sdc_exc_override1.sdcok b/openroad/sta/sdc/test/sdc_exc_override1.sdcok
+index b3a1fd99..19328bee 100644
+--- a/openroad/sta/sdc/test/sdc_exc_override1.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_override1.sdcok
+@@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
+ set_output_delay 3.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out2}]
+ group_path -name grp_a\
+     -from [get_ports {in1}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ group_path -name grp_inst\
+     -from [get_ports {in1}]\
+     -through [get_cells {and1}]\
+@@ -31,8 +30,7 @@ group_path -name grp_net\
+     -to [get_ports {out1}]
+ group_path -default\
+     -from [get_ports {in3}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_multicycle_path -hold\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+diff --git a/openroad/sta/sdc/test/sdc_exc_override2.sdcok b/openroad/sta/sdc/test/sdc_exc_override2.sdcok
+index b3a1fd99..19328bee 100644
+--- a/openroad/sta/sdc/test/sdc_exc_override2.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_override2.sdcok
+@@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
+ set_output_delay 3.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out2}]
+ group_path -name grp_a\
+     -from [get_ports {in1}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ group_path -name grp_inst\
+     -from [get_ports {in1}]\
+     -through [get_cells {and1}]\
+@@ -31,8 +30,7 @@ group_path -name grp_net\
+     -to [get_ports {out1}]
+ group_path -default\
+     -from [get_ports {in3}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_multicycle_path -hold\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+diff --git a/openroad/sta/sdc/test/sdc_exc_override3.sdcok b/openroad/sta/sdc/test/sdc_exc_override3.sdcok
+index 1e926a48..d19f8236 100644
+--- a/openroad/sta/sdc/test/sdc_exc_override3.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_override3.sdcok
+@@ -15,8 +15,7 @@ set_output_delay 3.000000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1
+ set_output_delay 3.000000 -clock [get_clocks {clk2}] -add_delay [get_ports {out2}]
+ group_path -name grp_a\
+     -from [get_ports {in1}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ group_path -name grp_inst\
+     -from [get_ports {in1}]\
+     -through [get_cells {and1}]\
+@@ -31,8 +30,7 @@ group_path -name grp_net\
+     -to [get_ports {out1}]
+ group_path -default\
+     -from [get_ports {in3}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_multicycle_path -hold\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+diff --git a/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok b/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
+index 4a7014d0..cca88c5d 100644
+--- a/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
+@@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
+ set_output_delay 3.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out2}]
+ group_path -name grp_a\
+     -from [get_ports {in1}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ group_path -name grp_inst\
+     -from [get_ports {in1}]\
+     -through [get_cells {and1}]\
+@@ -31,8 +30,7 @@ group_path -name grp_net\
+     -to [get_ports {out1}]
+ group_path -default\
+     -from [get_ports {in3}]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_multicycle_path -hold\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
+index 755f2939..e54abfff 100644
+--- a/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
+@@ -102,8 +102,7 @@ set_false_path\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_false_path\
+     -through [get_nets {n1}]\
+     -to [get_ports {out1}]
+diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
+index 755f2939..e54abfff 100644
+--- a/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
+@@ -102,8 +102,7 @@ set_false_path\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_false_path\
+     -through [get_nets {n1}]\
+     -to [get_ports {out1}]
+diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
+index b6b84144..fc6b9d66 100644
+--- a/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
+@@ -102,8 +102,7 @@ set_false_path\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_false_path\
+     -through [get_nets {n1}]\
+     -to [get_ports {out1}]
+diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
+index 431440c3..0d07788f 100644
+--- a/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
++++ b/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
+@@ -77,8 +77,7 @@ set_false_path\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_false_path\
+     -rise_through [get_nets {n4}]\
+     -to [get_ports {out2}]
+diff --git a/openroad/sta/sdc/test/sdc_exception_thru1.sdcok b/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
+index f17272a4..2222c21c 100644
+--- a/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
++++ b/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
+@@ -40,8 +40,7 @@ set_false_path\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ set_false_path\
+     -through [get_nets {n1}]\
+     -to [get_ports {out1}]
+diff --git a/openroad/sta/sdc/test/sdc_exception_thru2.sdcok b/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
+index 1a4a2997..b5c87fe7 100644
+--- a/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
++++ b/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
+@@ -48,8 +48,7 @@ set_false_path -setup\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ ###############################################################################
+ # Environment
+ ###############################################################################
+diff --git a/openroad/sta/sdc/test/sdc_exception_thru3.sdcok b/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
+index 1a4a2997..b5c87fe7 100644
+--- a/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
++++ b/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
+@@ -48,8 +48,7 @@ set_false_path -setup\
+ set_false_path\
+     -from [list [get_ports {in1}]\
+            [get_ports {in2}]]\
+-    -to [list [get_ports {out1}]\
+-           [get_ports {out2}]]
++    -to [all_outputs]
+ ###############################################################################
+ # Environment
+ ###############################################################################
+diff --git a/openroad/sta/sdc/test/sdc_write_collections.ok b/openroad/sta/sdc/test/sdc_write_collections.ok
+new file mode 100644
+index 00000000..1251b696
+--- /dev/null
++++ b/openroad/sta/sdc/test/sdc_write_collections.ok
+@@ -0,0 +1,28 @@
++###############################################################################
++# Created by write_sdc
++###############################################################################
++current_design sdc_test2
++###############################################################################
++# Timing Constraints
++###############################################################################
++create_clock -name clk1 -period 10.0000 [get_ports {clk1}]
++create_clock -name clk2 -period 10.0000 [get_ports {clk2}]
++group_path -name io\
++    -from [all_inputs]\
++    -to [all_outputs]
++set_max_delay\
++    -from [all_registers]\
++    -to [all_outputs] 6.0000
++set_max_delay\
++    -from [all_inputs -no_clocks]\
++    -to [all_registers] 5.0000
++set_false_path\
++    -from [list [get_cells {reg1}]\
++           [get_cells {reg2}]]\
++    -to [all_registers]
++###############################################################################
++# Environment
++###############################################################################
++###############################################################################
++# Design Rules
++###############################################################################
+diff --git a/openroad/sta/sdc/test/sdc_write_collections.tcl b/openroad/sta/sdc/test/sdc_write_collections.tcl
+new file mode 100644
+index 00000000..fa3e3bc4
+--- /dev/null
++++ b/openroad/sta/sdc/test/sdc_write_collections.tcl
+@@ -0,0 +1,19 @@
++# write_sdc writes all_registers, all_inputs [-no_clocks] and all_outputs
++# where an exception names exactly their objects, and the objects
++# otherwise: a subset of the registers stays a list.
++source ../../test/helpers.tcl
++
++read_liberty ../../test/nangate45/Nangate45_typ.lib
++read_verilog sdc_test2.v
++link_design sdc_test2
++
++create_clock -name clk1 -period 10 [get_ports clk1]
++create_clock -name clk2 -period 10 [get_ports clk2]
++set_max_delay 5 -from [all_inputs -no_clocks] -to [all_registers]
++set_max_delay 6 -from [all_registers] -to [all_outputs]
++group_path -name io -from [all_inputs] -to [all_outputs]
++set_false_path -from [get_cells {reg1 reg2}] -to [all_registers]
++
++set sdc_file [make_result_file sdc_write_collections.sdc]
++write_sdc -no_timestamp $sdc_file
++report_file $sdc_file
+-- 
+2.53.0
+
