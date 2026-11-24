@@ -240,6 +240,50 @@ orfs_flow(
 )
 
 # buildifier: disable=duplicated-name
+# SETUP_REPAIR_EFFORT (carried ORFS patch 0250) reaches repair_timing as
+# -effort: the floorplan's repair on the PARALLEL_EVAL policy at low effort,
+# on the synthesis of the flow above.
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS | {
+        "CORE_AREA": "1.026 1.080 6.372 3.510",
+        "CORE_ASPECT_RATIO": "",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 7.400 4.700",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    },
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = {
+        "IO_CONSTRAINTS": [":lb_32x128_io-placement.tcl"],
+        "SDC_FILE": [":constraints-sram"],
+    },
+    stage_arguments = {"floorplan": {
+        "SETUP_REPAIR_EFFORT": "low",
+        "SETUP_REPAIR_PHASES": "PARALLEL_EVAL",
+        # FAST_SETTINGS skips the floorplan's repair
+        "SKIP_FLOORPLAN_REPAIR_TIMING": "0",
+    }},
+    tags = ["manual"],
+    variant = "repair_effort",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+filegroup(
+    name = "lb_32x128_repair_effort_floorplan_logs",
+    srcs = [":lb_32x128_repair_effort_floorplan"],
+    output_group = "logs",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "setup_repair_effort_test",
+    size = "small",
+    srcs = ["setup_repair_effort_test.py"],
+    args = ["$(rootpaths :lb_32x128_repair_effort_floorplan_logs)"],
+    data = [":lb_32x128_repair_effort_floorplan_logs"],
+)
+
+# buildifier: disable=duplicated-name
 # Standalone stage target sharing another flow's synth.  It hands the macro
 # the same undifferentiated LB_ARGS/LB_SOURCES dicts an orfs_flow() gets and
 # relies on it to keep only what floorplan owns — the filtering used to be
