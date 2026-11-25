@@ -16,6 +16,11 @@ deleted every BUILD it shipped, and patches run before the patch_cmds
 that write these back, so a patch can no longer reach it. Re-recording
 cannot restore it either -- there is nothing upstream left to record.
 
+Nor is flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD: ORFS #4881
+declared ADDITIONAL_{TYP,FAST,SLOW}_LIBS in variables.yaml, so its
+user_sources list, which named two of them, is dropped and the
+variables pass as sources.
+
 Three recorded files are gone: asap7/minimal, asap7/mock-cpu and
 src/fifo, the designs ORFS has deleted since, and mock-cpu with them
 from the asap7 suite. A design ORFS deletes later is dropped here the
@@ -34,7 +39,7 @@ RECORDED_BUILDS = {
     "flow/designs/asap7/swerv_wrapper/lib/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("lib")\n',
     "flow/designs/gf180/aes-hybrid/BUILD": 'load("//flow/designs:design.bzl", "design")\n\ndesign(\n    config = "config.mk",\n    local_arguments = [\n        "BC_ADDITIONAL_LIB_FILES",\n        "TC_ADDITIONAL_LIB_FILES",\n        "WC_ADDITIONAL_LIB_FILES",\n    ],\n    user_arguments = ["DESIGN_TYPE"],\n)\n',
     "flow/designs/gf180/aes/BUILD": 'load("//flow/designs:design.bzl", "design")\n\ndesign(\n    config = "config.mk",\n    user_arguments = ["DESIGN_TYPE"],\n)\n',
-    "flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD": 'load("//flow/designs:design.bzl", "design")\n\ndesign(\n    config = "config.mk",\n    user_arguments = [\n        "IO_EAST_PINS",\n        "IO_NORTH_PINS",\n        "IO_SOUTH_PINS",\n        "IO_WEST_PINS",\n    ],\n    user_sources = [\n        "ADDITIONAL_FAST_LIBS",\n        "ADDITIONAL_SLOW_LIBS",\n    ],\n)\n',
+    "flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD": 'load("//flow/designs:design.bzl", "design")\n\ndesign(\n    config = "config.mk",\n    user_arguments = [\n        "IO_EAST_PINS",\n        "IO_NORTH_PINS",\n        "IO_SOUTH_PINS",\n        "IO_WEST_PINS",\n    ],\n)\n',
     "flow/designs/sky130hd/chameleon/BUILD": 'load("//flow/designs:design.bzl", "design")\n\n# FP_PDN_RAIL_{OFFSET,WIDTH} are read by chameleon\'s own pdn.cfg, not\n# by ORFS itself — route them through user_arguments so the validator\n# doesn\'t reject them as unknown ORFS variables.\n#\n# VERILOG_FILES_BLACKBOX is a config.mk-local helper: only used via\n# $(VERILOG_FILES_BLACKBOX) expansion inside VERILOG_FILES.\ndesign(\n    config = "config.mk",\n    user_arguments = [\n        "FP_PDN_RAIL_OFFSET",\n        "FP_PDN_RAIL_WIDTH",\n    ],\n    local_arguments = ["VERILOG_FILES_BLACKBOX"],\n)\n',
     "flow/designs/sky130hd/chameleon/gds/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("gds")\n',
     "flow/designs/sky130hd/chameleon/lef/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("lef")\n',
