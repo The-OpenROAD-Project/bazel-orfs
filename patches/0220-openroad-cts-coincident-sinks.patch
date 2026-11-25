@@ -49,17 +49,17 @@ pointInsts, which runs parallel to the points.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- openroad/cts/src/HTreeBuilder.cpp         |  73 +++--
- openroad/cts/src/HTreeBuilder.h           |  11 +-
+ openroad/cts/src/HTreeBuilder.cpp         |  89 ++++--
+ openroad/cts/src/HTreeBuilder.h           |  15 +-
  openroad/cts/test/BUILD                   |   1 +
  openroad/cts/test/colocated_registers.def | 318 ++++++++++++++++++++++
  openroad/cts/test/colocated_registers.tcl |  87 ++++++
- 5 files changed, 467 insertions(+), 23 deletions(-)
+ 5 files changed, 481 insertions(+), 29 deletions(-)
  create mode 100644 openroad/cts/test/colocated_registers.def
  create mode 100644 openroad/cts/test/colocated_registers.tcl
 
 diff --git a/openroad/cts/src/HTreeBuilder.cpp b/openroad/cts/src/HTreeBuilder.cpp
-index 758c2a6372..9367526f11 100644
+index db7daf8baa..87445fecf5 100644
 --- a/openroad/cts/src/HTreeBuilder.cpp
 +++ b/openroad/cts/src/HTreeBuilder.cpp
 @@ -9,7 +9,9 @@
@@ -72,16 +72,22 @@ index 758c2a6372..9367526f11 100644
  #include <utility>
  #include <vector>
  
-@@ -38,7 +40,7 @@ Point<double> HTreeBuilder::legalizeOneBuffer(Point<double> bufferLoc,
+@@ -38,12 +40,12 @@ Point<double> HTreeBuilder::legalizeOneBuffer(Point<double> bufferLoc,
  
- void HTreeBuilder::preSinkClustering(
+ bool HTreeBuilder::clusterSinks(
      const std::vector<std::pair<float, float>>& sinks,
 -    const std::vector<const ClockInst*>& sinkInsts,
 +    const std::vector<ClockInst*>& sinkInsts,
      const float maxDiameter,
      const unsigned clusterSize,
-     const bool secondLevel)
-@@ -58,7 +60,7 @@ void HTreeBuilder::preSinkClustering(
+     const bool secondLevel,
+     std::vector<std::pair<float, float>>& points,
+-    std::vector<const ClockInst*>& pointInsts,
++    std::vector<ClockInst*>& pointInsts,
+     std::vector<std::pair<float, float>>& gatePoints,
+     SinkClustering& matching,
+     unsigned& bestClusterSize,
+@@ -57,7 +59,7 @@ bool HTreeBuilder::clusterSinks(
      clock_.forEachSink([&](ClockInst& inst) {
        const Point<double> normLocation((float) inst.getX() / wireSegmentUnit_,
                                         (float) inst.getY() / wireSegmentUnit_);
@@ -90,16 +96,25 @@ index 758c2a6372..9367526f11 100644
        if (!fuzzyEqual(inst.getInsertionDelay(), 0.0, 1e-6)) {
          setSinkInsertionDelay(normLocation,
                                inst.getInsertionDelay() / wireSegmentUnit_);
-@@ -80,7 +82,7 @@ void HTreeBuilder::preSinkClustering(
-   // The H-tree drives a clock gate sink directly in place of a leaf buffer.
-   std::vector<std::pair<float, float>> gatePoints;
+@@ -115,7 +117,7 @@ bool HTreeBuilder::clusterSinks(
+ 
+ void HTreeBuilder::preSinkClustering(
+     const std::vector<std::pair<float, float>>& sinks,
+-    const std::vector<const ClockInst*>& sinkInsts,
++    const std::vector<ClockInst*>& sinkInsts,
+     const float maxDiameter,
+     const unsigned clusterSize,
+     const bool secondLevel)
+@@ -128,7 +130,7 @@ void HTreeBuilder::preSinkClustering(
+                             : options_->isSinkClusteringSizeSet();
+ 
    std::vector<std::pair<float, float>> points;
 -  std::vector<const ClockInst*> pointInsts;
 +  std::vector<ClockInst*> pointInsts;
-   for (size_t i = 0; i < sinks.size(); i++) {
-     if (!secondLevel && sinkInsts[i]->isClockGateSink()) {
-       gatePoints.push_back(sinks[i]);
-@@ -163,14 +165,11 @@ void HTreeBuilder::preSinkClustering(
+   std::vector<std::pair<float, float>> gatePoints;
+   SinkClustering matching(options_, techChar_, this);
+   unsigned bestClusterSize = 0;
+@@ -192,14 +194,11 @@ void HTreeBuilder::preSinkClustering(
        float ySum = 0;
        for (auto point_idx : cluster) {
          const std::pair<double, double>& point = points[point_idx];
@@ -117,7 +132,7 @@ index 758c2a6372..9367526f11 100644
        }
        const unsigned pointCounter = cluster.size();
        const float normCenterX
-@@ -222,7 +221,7 @@ void HTreeBuilder::preSinkClustering(
+@@ -251,7 +250,7 @@ void HTreeBuilder::preSinkClustering(
        // Simulate the float conversion to ensure consistent map keys
        Point<double> mapKey(point.first, point.second);
  
@@ -126,7 +141,7 @@ index 758c2a6372..9367526f11 100644
      }
      clusterCount++;
    }
-@@ -319,7 +318,7 @@ void HTreeBuilder::initSinkRegion()
+@@ -344,7 +343,7 @@ void HTreeBuilder::initSinkRegion()
    }
  
    std::vector<std::pair<float, float>> topLevelSinks;
@@ -135,7 +150,7 @@ index 758c2a6372..9367526f11 100644
    initTopLevelSinks(topLevelSinks, sinkInsts);
  
    const float maxDiameter = (clusterDiameter * dbUnits) / wireSegmentUnit_;
-@@ -341,7 +340,7 @@ void HTreeBuilder::initSinkRegion()
+@@ -366,7 +365,7 @@ void HTreeBuilder::initSinkRegion()
      if (topLevelSinksClustered_.size() > 400
          && options_->getSinkClusteringLevels() > 0) {
        std::vector<std::pair<float, float>> secondLevelLocs;
@@ -144,16 +159,37 @@ index 758c2a6372..9367526f11 100644
        initSecondLevelSinks(secondLevelLocs, secondLevelInsts);
        preSinkClustering(secondLevelLocs,
                          secondLevelInsts,
-@@ -1413,7 +1412,7 @@ std::string HTreeBuilder::plotHTree()
+@@ -398,14 +397,14 @@ std::vector<std::vector<const ClockInst*>> HTreeBuilder::predictSinkClusters()
+   // As initSinkRegion up to its first preSinkClustering.
+   wireSegmentUnit_ = techChar_->getLengthUnit();
+   std::vector<std::pair<float, float>> topLevelSinks;
+-  std::vector<const ClockInst*> sinkInsts;
++  std::vector<ClockInst*> sinkInsts;
+   initTopLevelSinks(topLevelSinks, sinkInsts);
+   const float maxDiameter
+       = (sinkClusteringDiameter() * options_->getDbUnits()) / wireSegmentUnit_;
+ 
+   std::vector<std::vector<const ClockInst*>> clusters;
+   std::vector<std::pair<float, float>> points;
+-  std::vector<const ClockInst*> pointInsts;
++  std::vector<ClockInst*> pointInsts;
+   std::vector<std::pair<float, float>> gatePoints;
+   SinkClustering matching(options_, techChar_, this);
+   unsigned bestClusterSize = 0;
+@@ -1488,7 +1487,11 @@ std::string HTreeBuilder::plotHTree()
              = leafTopology.getBranchSinksLocations(idx);
  
          for (const Point<double>& loc : sinkLocs) {
 -          auto name2 = mapLocationToSink_[loc]->getName();
-+          auto name2 = mapLocationToSink_[loc].front()->getName();
++          const auto sinks = mapLocationToSink_.find(loc);
++          if (sinks == mapLocationToSink_.end() || sinks->second.empty()) {
++            logger_->error(CTS, 139, "No sink at leaf location {}.", loc);
++          }
++          auto name2 = sinks->second.front()->getName();
  
            file << numSinks << " " << loc.getX() << " " << loc.getY();
            file << " " << px << " " << py << " leafbuffer " << name2;
-@@ -1852,10 +1851,10 @@ void HTreeBuilder::computeBranchingPoints(const unsigned level,
+@@ -1927,10 +1930,10 @@ void HTreeBuilder::computeBranchingPoints(const unsigned level,
  
  void HTreeBuilder::initTopLevelSinks(
      std::vector<std::pair<float, float>>& sinkLocations,
@@ -166,7 +202,7 @@ index 758c2a6372..9367526f11 100644
      sinkLocations.emplace_back((float) sink.getX() / wireSegmentUnit_,
                                 (float) sink.getY() / wireSegmentUnit_);
      sinkInsts.emplace_back(&sink);
-@@ -1864,13 +1863,15 @@ void HTreeBuilder::initTopLevelSinks(
+@@ -1939,13 +1942,19 @@ void HTreeBuilder::initTopLevelSinks(
  
  void HTreeBuilder::initSecondLevelSinks(
      std::vector<std::pair<float, float>>& sinkLocations,
@@ -180,11 +216,15 @@ index 758c2a6372..9367526f11 100644
 -    sinkInsts.emplace_back(mapLocationToSink_[bufPos]);
 +    // A sink buffer's location is unique: legalizeOneBuffer resolves
 +    // collisions with every location in the map.
-+    sinkInsts.emplace_back(mapLocationToSink_[bufPos].front());
++    const auto sinks = mapLocationToSink_.find(bufPos);
++    if (sinks == mapLocationToSink_.end() || sinks->second.empty()) {
++      logger_->error(CTS, 79, "No sink at clustered location {}.", bufPos);
++    }
++    sinkInsts.emplace_back(sinks->second.front());
    }
  }
  
-@@ -2128,6 +2129,9 @@ void HTreeBuilder::createClockSubNets()
+@@ -2203,6 +2212,9 @@ void HTreeBuilder::createClockSubNets()
  
    LevelTopology& leafTopology = topologyForEachLevel_.back();
    unsigned numSinks = 0;
@@ -194,7 +234,7 @@ index 758c2a6372..9367526f11 100644
    leafTopology.forEachBranchingPoint(
        [&](unsigned idx, Point<double> branchPoint) {
          ClockSubNet* subNet = leafTopology.getBranchDrivingSubNet(idx);
-@@ -2142,16 +2146,47 @@ void HTreeBuilder::createClockSubNets()
+@@ -2217,16 +2229,47 @@ void HTreeBuilder::createClockSubNets()
          const std::vector<Point<double>>& sinkLocs
              = leafTopology.getBranchSinksLocations(idx);
          for (const Point<double>& loc : sinkLocs) {
@@ -245,10 +285,10 @@ index 758c2a6372..9367526f11 100644
  
  void HTreeBuilder::createSingleBufferClockNet()
 diff --git a/openroad/cts/src/HTreeBuilder.h b/openroad/cts/src/HTreeBuilder.h
-index 95983d4657..6f52dd6ecd 100644
+index 61f9208b54..361dc359fc 100644
 --- a/openroad/cts/src/HTreeBuilder.h
 +++ b/openroad/cts/src/HTreeBuilder.h
-@@ -306,9 +306,9 @@ class HTreeBuilder : public TreeBuilder
+@@ -308,9 +308,9 @@ class HTreeBuilder : public TreeBuilder
    void createClockSubNets();
    void createSingleBufferClockNet();
    void initTopLevelSinks(std::vector<std::pair<float, float>>& sinkLocations,
@@ -260,7 +300,7 @@ index 95983d4657..6f52dd6ecd 100644
    void computeBranchSinks(
        const LevelTopology& topology,
        unsigned branchIdx,
-@@ -341,7 +341,7 @@ class HTreeBuilder : public TreeBuilder
+@@ -343,17 +343,17 @@ class HTreeBuilder : public TreeBuilder
                          std::vector<std::pair<float, float>>& points,
                          std::vector<unsigned>& mapSinkToPoint);
    void preSinkClustering(const std::vector<std::pair<float, float>>& sinks,
@@ -269,7 +309,19 @@ index 95983d4657..6f52dd6ecd 100644
                           float maxDiameter,
                           unsigned clusterSize,
                           bool secondLevel = false);
-@@ -379,7 +379,10 @@ class HTreeBuilder : public TreeBuilder
+   bool clusterSinks(const std::vector<std::pair<float, float>>& sinks,
+-                    const std::vector<const ClockInst*>& sinkInsts,
++                    const std::vector<ClockInst*>& sinkInsts,
+                     float maxDiameter,
+                     unsigned clusterSize,
+                     bool secondLevel,
+                     std::vector<std::pair<float, float>>& points,
+-                    std::vector<const ClockInst*>& pointInsts,
++                    std::vector<ClockInst*>& pointInsts,
+                     std::vector<std::pair<float, float>>& gatePoints,
+                     SinkClustering& matching,
+                     unsigned& bestClusterSize,
+@@ -394,7 +394,10 @@ class HTreeBuilder : public TreeBuilder
   private:
    Box<double> sinkRegion_;
    std::vector<LevelTopology> topologyForEachLevel_;
@@ -282,7 +334,7 @@ index 95983d4657..6f52dd6ecd 100644
  
    int wireSegmentUnit_ = 0;
 diff --git a/openroad/cts/test/BUILD b/openroad/cts/test/BUILD
-index fbec1e25e0..6c0764cefc 100644
+index edf1117f96..f2eb7d9406 100644
 --- a/openroad/cts/test/BUILD
 +++ b/openroad/cts/test/BUILD
 @@ -62,6 +62,7 @@ COMPULSORY_TESTS = [
@@ -712,4 +764,3 @@ index 0000000000..f878e9d1b5
 +exit_summary
 -- 
 2.53.0
-

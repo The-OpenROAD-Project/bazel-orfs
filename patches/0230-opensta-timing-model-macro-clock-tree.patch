@@ -36,12 +36,11 @@ OpenROAD whose OpenSTA has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- search/MakeTimingModel.cc                     |  7 +-
  .../search_timing_model_clktree_macro.lib     | 71 +++++++++++++++++++
  .../test/search_timing_model_clktree_macro.ok |  4 ++
  .../search_timing_model_clktree_macro.tcl     | 60 ++++++++++++++++
  .../test/search_timing_model_clktree_macro.v  | 13 ++++
- 5 files changed, 154 insertions(+), 1 deletion(-)
+ 4 files changed, 148 insertions(+)
  create mode 100644 search/test/search_timing_model_clktree_macro.lib
  create mode 100644 search/test/search_timing_model_clktree_macro.ok
  create mode 100644 search/test/search_timing_model_clktree_macro.tcl
@@ -49,7 +48,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.lib b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 new file mode 100644
-index 00000000..6be60e43
+index 0000000..6be60e4
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 @@ -0,0 +1,71 @@
@@ -126,7 +125,7 @@ index 00000000..6be60e43
 +}
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.ok b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 new file mode 100644
-index 00000000..2fe8333a
+index 0000000..2fe8333
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 @@ -0,0 +1,4 @@
@@ -136,7 +135,7 @@ index 00000000..2fe8333a
 +ok: min_clock_tree_path rise is the earliest flop's clock arrival
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.tcl b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 new file mode 100644
-index 00000000..070b017a
+index 0000000..070b017
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 @@ -0,0 +1,60 @@
@@ -202,7 +201,7 @@ index 00000000..070b017a
 +  [expr { abs($min_rise - $ff_rise) < 1e-3 }]
 diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.v b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 new file mode 100644
-index 00000000..608e0d8e
+index 0000000..608e0d8
 --- /dev/null
 +++ b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 @@ -0,0 +1,13 @@
@@ -219,7 +218,6 @@ index 00000000..608e0d8e
 +  clktree_macro mac (.CLK(clk), .D(n1), .Q(n2));
 +  DFF_X1 ff2 (.D(n2), .CK(clk_buf), .Q(out1));
 +endmodule
-
 -- 
 2.53.0
 

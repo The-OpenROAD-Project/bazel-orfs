@@ -172,11 +172,11 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  4 files changed, 384 insertions(+), 1 deletion(-)
 
 diff --git a/openroad/gpl/src/nesterovPlace.cpp b/openroad/gpl/src/nesterovPlace.cpp
-index 3a1b7ab..29d9d2c 100644
+index eb5eab0e26..0adc2d6c19 100644
 --- a/openroad/gpl/src/nesterovPlace.cpp
 +++ b/openroad/gpl/src/nesterovPlace.cpp
-@@ -643,6 +643,51 @@ void NesterovPlace::runTimingDriven(int iter,
-   }
+@@ -681,6 +681,51 @@ void NesterovPlace::runPowerDriven()
+   refreshCurGradients();
  }
  
 +void NesterovPlace::restartMomentumOnRise(const int iter,
@@ -227,7 +227,7 @@ index 3a1b7ab..29d9d2c 100644
  // Evaluate every gradient at curSLP on the repaired
  // netlist, in the same order as init().
  void NesterovPlace::refreshCurGradients()
-@@ -1602,6 +1647,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
+@@ -1654,6 +1699,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
                          routability_driven_revert_count,
                          timing_driven_count);
  
@@ -235,7 +235,7 @@ index 3a1b7ab..29d9d2c 100644
      runRoutability(nesterov_iter,
                     timing_driven_count,
                     routability_driven_dir,
-@@ -1612,6 +1658,10 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
+@@ -1664,6 +1710,10 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
        stop = PlaceStop::kConverged;
        break;
      }
@@ -247,10 +247,10 @@ index 3a1b7ab..29d9d2c 100644
  
    // Unlike a divergence, running out of iterations says nothing about the
 diff --git a/openroad/gpl/src/nesterovPlace.h b/openroad/gpl/src/nesterovPlace.h
-index 43fa413..62cbf4e 100644
+index 391c24b47e..a0ac0ad35e 100644
 --- a/openroad/gpl/src/nesterovPlace.h
 +++ b/openroad/gpl/src/nesterovPlace.h
-@@ -109,6 +109,7 @@ class NesterovPlace
+@@ -108,6 +108,7 @@ class NesterovPlace
   private:
    friend class TimingRepairIntegrationTest;
    friend class RoutabilityMinimumTest;
@@ -272,7 +272,7 @@ index 43fa413..62cbf4e 100644
    enum class DivergeAction
    {
      kNone,
-@@ -280,6 +288,20 @@ class NesterovPlace
+@@ -284,6 +292,20 @@ class NesterovPlace
    // trajectory into the changed objective and diverge the placement.
    bool reset_nesterov_momentum_ = false;
  
@@ -294,7 +294,7 @@ index 43fa413..62cbf4e 100644
    int divergeCode_ = 0;
  
 diff --git a/openroad/gpl/test/end_of_descent_test.cpp b/openroad/gpl/test/end_of_descent_test.cpp
-index 5fe0508..70fd6d6 100644
+index b75e983e66..8d82f9caeb 100644
 --- a/openroad/gpl/test/end_of_descent_test.cpp
 +++ b/openroad/gpl/test/end_of_descent_test.cpp
 @@ -4,7 +4,8 @@
@@ -549,7 +549,7 @@ index 5fe0508..70fd6d6 100644
 +
  }  // namespace gpl
 diff --git a/openroad/gpl/test/routability_minimum_test.cpp b/openroad/gpl/test/routability_minimum_test.cpp
-index f211c97..1f464ac 100644
+index 4ddb8ae58f..ff9f6d6296 100644
 --- a/openroad/gpl/test/routability_minimum_test.cpp
 +++ b/openroad/gpl/test/routability_minimum_test.cpp
 @@ -7,6 +7,7 @@
@@ -661,4 +661,3 @@ index f211c97..1f464ac 100644
  }  // namespace gpl
 -- 
 2.53.0
-

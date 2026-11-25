@@ -23,10 +23,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 36 insertions(+), 12 deletions(-)
 
 diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
-index e646615..40c2432 100644
+index 22be0049c6..6f4679fdc9 100644
 --- a/openroad/grt/src/fastroute/include/FastRoute.h
 +++ b/openroad/grt/src/fastroute/include/FastRoute.h
-@@ -243,6 +243,8 @@ class FastRouteCore
+@@ -244,6 +244,8 @@ class FastRouteCore
    void setEdgeCapacity(int x1, int y1, int x2, int y2, int layer, int capacity);
    int getDbNetLayerEdgeCost(odb::dbNet* db_net, int layer);
    void initEdgesCapacityPerLayer();
@@ -36,7 +36,7 @@ index e646615..40c2432 100644
    void freeMaze3D();
    // Backs the routing grid with a file at path; empty for memory only.
 diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
-index c9f1ce9..92d5bd3 100644
+index 28f64def55..ff747d6eaa 100644
 --- a/openroad/grt/src/fastroute/src/FastRoute.cpp
 +++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
 @@ -337,10 +337,7 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
@@ -107,7 +107,7 @@ index c9f1ce9..92d5bd3 100644
  // The 3D maze's per-GCell and layer work arrays are needed only while
  // mazeRouteMSMDOrder3D runs.
  void FastRouteCore::allocateMaze3D()
-@@ -2491,6 +2511,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2509,6 +2529,7 @@ NetRouteMap FastRouteCore::run()
          && overflow_iterations_ > 0) {
        initial_sttrees = saveInitialRoutes();
      }
@@ -115,7 +115,7 @@ index c9f1ce9..92d5bd3 100644
      while (total_overflow_ > 0 && i <= overflow_iterations_
             && overflow_increases <= max_overflow_increases) {
        if (verbose_) {
-@@ -2794,6 +2815,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2812,6 +2833,7 @@ NetRouteMap FastRouteCore::run()
          saveCongestion(i);
        }
      }  // end overflow iterations
@@ -125,4 +125,3 @@ index c9f1ce9..92d5bd3 100644
    // Debug mode Tree 2D after overflow iterations
 -- 
 2.53.0
-

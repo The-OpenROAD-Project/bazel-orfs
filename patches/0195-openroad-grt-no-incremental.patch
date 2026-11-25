@@ -42,27 +42,27 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 openroad/grt/test/gcd_no_incremental.tcl
 
 diff --git a/openroad/grt/README.md b/openroad/grt/README.md
-index 810c6ae..b90aa64 100644
+index ae4ed8cb94..571b375936 100644
 --- a/openroad/grt/README.md
 +++ b/openroad/grt/README.md
-@@ -28,6 +28,7 @@ global_route
-     [-allow_congestion]
+@@ -29,6 +29,7 @@ global_route
      [-snapshot_batched_width width]
+     [-congestion_only]
      [-backing_file file]
 +    [-no_incremental]
      [-verbose]
      [-start_incremental]
      [-end_incremental]
-@@ -58,6 +59,7 @@ global_route
- | `-infinite_cap` | Enables "infinite" gcell capacity for testing purpose. NOTE: this is not recommended for production flows. |
+@@ -60,6 +61,7 @@ global_route
  | `-snapshot_batched_width` | Set the semantic width of snapshot-batched routing (max batches per wave). The default is `0`, preserving the non-batched behavior. Set a positive integer to enable batched routing; allowed values are integers `[1, MAX_INT]`. Execution width still follows `set_thread_count`. NOTE: this is not recommended for production flows; it is intended for exploration and research projects. |
+ | `-congestion_only` | Run FastRoute's initial 2D L-route congestion pass only, skipping rip-up/reroute, 3D layer assignment, and route guide generation. Useful for fast floorplan congestion estimation. An estimate that overflows is reported as a warning (GRT-0343), not as an error, with or without `-allow_congestion`. It cannot be combined with `-start_incremental`, `-end_incremental` or `-guide_file` (GRT-0344). The default is false. |
  | `-backing_file` | Back the routing grid (the 2D and 3D edges and the capacity per layer) with a file at this path instead of memory alone, so the kernel pages it to the file rather than to swap. The file is reserved for the whole grid when the grid is set up, which fails at once if the disk cannot hold it, and is removed as soon as it is created. The routes are the same as without it. |
 +| `-no_incremental` | Free the router's own nets, Steiner trees and grid once the routes are saved, for a flow that does not reroute incrementally afterwards. The routes are the same; a later `-start_incremental` rebuilds the router from them. |
  
  ### Set Routing Layers
  
 diff --git a/openroad/grt/include/grt/GlobalRouter.h b/openroad/grt/include/grt/GlobalRouter.h
-index 7038dcd..1365545 100644
+index d4d7d0c5fc..45120b25cf 100644
 --- a/openroad/grt/include/grt/GlobalRouter.h
 +++ b/openroad/grt/include/grt/GlobalRouter.h
 @@ -161,6 +161,11 @@ class GlobalRouter
@@ -76,23 +76,23 @@ index 7038dcd..1365545 100644
 +  }
    int getSnapshotBatchedWidth() const;
    int getSnapshotBatchCount() const;
-   bool isResistanceAware() { return resistance_aware_; };
-@@ -658,6 +663,7 @@ class GlobalRouter
-   bool resistance_aware_{false};
+   void setCongestionOnly(bool congestion_only)
+@@ -667,6 +672,7 @@ class GlobalRouter
    int snapshot_batched_width_{0};
+   bool congestion_only_ = false;
    std::string backing_file_;
 +  bool no_incremental_ = false;
    int num_threads_;
    std::vector<int> vertical_capacities_;
    std::vector<int> horizontal_capacities_;
 diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
-index 3a10f74..0550502 100644
+index 4ca381af36..916ed57e85 100644
 --- a/openroad/grt/src/GlobalRouter.cpp
 +++ b/openroad/grt/src/GlobalRouter.cpp
-@@ -560,6 +560,13 @@ void GlobalRouter::globalRoute(bool save_guides)
+@@ -627,6 +627,13 @@ void GlobalRouter::globalRoute(bool save_guides)
    }
  
-   finishGlobalRouting(save_guides);
+   finishGlobalRouting(save_guides && !congestion_only_);
 +  if (no_incremental_) {
 +    // Nothing reroutes incrementally: FastRoute's nets, trees and grid are
 +    // freed; the routes stay. A later -start_incremental rebuilds them from
@@ -104,10 +104,10 @@ index 3a10f74..0550502 100644
      const int elapsed = static_cast<int>(timer.elapsed());
      const int hour = elapsed / 3600;
 diff --git a/openroad/grt/src/GlobalRouter.i b/openroad/grt/src/GlobalRouter.i
-index e75ccab..27fbe6f 100644
+index b0e4b88360..9c61891535 100644
 --- a/openroad/grt/src/GlobalRouter.i
 +++ b/openroad/grt/src/GlobalRouter.i
-@@ -161,6 +161,12 @@ set_backing_file(const char* path)
+@@ -167,6 +167,12 @@ set_backing_file(const char* path)
    getGlobalRouter()->setBackingFile(path);
  }
  
@@ -121,29 +121,29 @@ index e75ccab..27fbe6f 100644
  get_snapshot_batched_width()
  {
 diff --git a/openroad/grt/src/GlobalRouter.tcl b/openroad/grt/src/GlobalRouter.tcl
-index 8581b7e..88978d3 100644
+index 1a5582d467..6de958c50f 100644
 --- a/openroad/grt/src/GlobalRouter.tcl
 +++ b/openroad/grt/src/GlobalRouter.tcl
-@@ -151,6 +151,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
-                                   [-allow_congestion] \
+@@ -152,6 +152,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
                                    [-snapshot_batched_width width] \
+                                   [-congestion_only] \
                                    [-backing_file file] \
 +                                  [-no_incremental] \
                                    [-verbose] \
                                    [-start_incremental] \
                                    [-end_incremental] \
-@@ -167,7 +168,7 @@ proc global_route { args } {
+@@ -168,7 +169,7 @@ proc global_route { args } {
            -skip_large_fanout_nets -snapshot_batched_width -backing_file
           } \
      flags {-allow_congestion -resistance_aware -infinite_cap -verbose -start_incremental \
--          -end_incremental -use_cugr}
-+          -end_incremental -use_cugr -no_incremental}
+-          -end_incremental -use_cugr -congestion_only}
++          -end_incremental -use_cugr -congestion_only -no_incremental}
  
    sta::check_argc_eq0 "global_route" $args
  
-@@ -261,6 +262,8 @@ proc global_route { args } {
+@@ -279,6 +280,8 @@ proc global_route { args } {
    }
-   grt::set_snapshot_batched_width $snapshot_batched_width
+   grt::set_congestion_only [info exists flags(-congestion_only)]
  
 +  grt::set_no_incremental [info exists flags(-no_incremental)]
 +
@@ -151,7 +151,7 @@ index 8581b7e..88978d3 100644
      grt::set_backing_file $keys(-backing_file)
    } else {
 diff --git a/openroad/grt/src/fastroute/src/graph2d.cpp b/openroad/grt/src/fastroute/src/graph2d.cpp
-index 87c9c52..7ee7a19 100644
+index 87c9c525da..7ee7a19f6c 100644
 --- a/openroad/grt/src/fastroute/src/graph2d.cpp
 +++ b/openroad/grt/src/fastroute/src/graph2d.cpp
 @@ -247,6 +247,10 @@ void Graph2D::clear()
@@ -166,7 +166,7 @@ index 87c9c52..7ee7a19 100644
    v_dirty_est_edges_.clear();
    h_dirty_history_edges_.clear();
 diff --git a/openroad/grt/test/BUILD b/openroad/grt/test/BUILD
-index 1084522..f6ad511 100644
+index ca4f780595..4c0a24e9f2 100644
 --- a/openroad/grt/test/BUILD
 +++ b/openroad/grt/test/BUILD
 @@ -44,6 +44,7 @@ TESTS = [
@@ -179,7 +179,7 @@ index 1084522..f6ad511 100644
      "global_route_above_max_layer_cugr",
 diff --git a/openroad/grt/test/gcd_no_incremental.ok b/openroad/grt/test/gcd_no_incremental.ok
 new file mode 100644
-index 0000000..fb367c5
+index 0000000000..fb367c5492
 --- /dev/null
 +++ b/openroad/grt/test/gcd_no_incremental.ok
 @@ -0,0 +1,68 @@
@@ -253,7 +253,7 @@ index 0000000..fb367c5
 +No differences found.
 diff --git a/openroad/grt/test/gcd_no_incremental.tcl b/openroad/grt/test/gcd_no_incremental.tcl
 new file mode 100644
-index 0000000..fd5844a
+index 0000000000..fd5844ad87
 --- /dev/null
 +++ b/openroad/grt/test/gcd_no_incremental.tcl
 @@ -0,0 +1,15 @@
@@ -274,4 +274,3 @@ index 0000000..fd5844a
 +diff_files gcd.guideok $guide_file
 -- 
 2.53.0
-

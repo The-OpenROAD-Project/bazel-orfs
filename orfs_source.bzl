@@ -145,11 +145,6 @@ ORFS_PATCHES = [
     # few sites wide, and diverged (GPL-0305). On 0172. Not upstreamed;
     # retires at a bump onto an ORFS that carries it.
     Label("//patches:0215-orfs-regfile-array-blockage.patch"),
-    # 0217: an issue archive's run-me script climbs from a relative
-    # WORK_HOME (bazel-orfs's package) to the archive's root before it
-    # sources the vars, whose paths are relative to the root. Not
-    # upstreamed; retires at a bump onto an ORFS that carries it.
-    Label("//patches:0217-orfs-issue-run-me-root.patch"),
     # 0231: generate_abstract stops on a model whose max_clock_tree_path
     # is below its min: a parent's CTS balances the block by the max and
     # clocks it late (XiangShan's VecRegionModule, 245 ps). Not
@@ -467,7 +462,6 @@ filegroup(
         [
             "*.mk",
             "*.py",
-            "*.sh",
             "*.tcl",
         ],
         exclude = ["*_test.py"],

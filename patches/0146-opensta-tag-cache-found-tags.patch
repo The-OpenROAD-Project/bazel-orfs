@@ -31,10 +31,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
-index d7ca420..8df4654 100644
+index a155a5f..e9356cd 100644
 --- a/openroad/sta/search/Search.cc
 +++ b/openroad/sta/search/Search.cc
-@@ -3016,12 +3016,19 @@ Search::findTag(Scene *scene,
+@@ -3163,12 +3163,19 @@ Search::findTag(Scene *scene,
              states, false);
    if (tag_cache) {
      Tag *tag = findKey(*tag_cache, &probe);

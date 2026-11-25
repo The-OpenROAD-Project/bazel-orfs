@@ -30,7 +30,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/openroad/sta/tcl/Util.tcl b/openroad/sta/tcl/Util.tcl
-index e3d09a2d..b14f53e5 100644
+index e3d09a2..b14f53e 100644
 --- a/openroad/sta/tcl/Util.tcl
 +++ b/openroad/sta/tcl/Util.tcl
 @@ -630,6 +630,9 @@ proc include_file { filename echo verbose } {

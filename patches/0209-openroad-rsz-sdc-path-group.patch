@@ -26,7 +26,7 @@ Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
 OpenROAD that has it.
 
 diff --git a/openroad/rsz/src/PathGroupFilter.cc b/openroad/rsz/src/PathGroupFilter.cc
-index 0b52197..7452836 100644
+index 0b5219724d..74528366a9 100644
 --- a/openroad/rsz/src/PathGroupFilter.cc
 +++ b/openroad/rsz/src/PathGroupFilter.cc
 @@ -45,6 +45,7 @@ StartpointKind groupStartpointKind(const PathGroupType type)
@@ -156,7 +156,7 @@ index 0b52197..7452836 100644
  {
    if (!enabled()) {
 diff --git a/openroad/rsz/src/PathGroupFilter.hh b/openroad/rsz/src/PathGroupFilter.hh
-index 014a589..1a5c23b 100644
+index 014a5895df..1a5c23b53d 100644
 --- a/openroad/rsz/src/PathGroupFilter.hh
 +++ b/openroad/rsz/src/PathGroupFilter.hh
 @@ -38,7 +38,10 @@ enum class PathGroupType
@@ -188,20 +188,20 @@ index 014a589..1a5c23b 100644
  
  }  // namespace rsz
 diff --git a/openroad/rsz/test/BUILD b/openroad/rsz/test/BUILD
-index d0bdf7e..33b7eb8 100644
+index e4b39fb5ac..fc2d498385 100644
 --- a/openroad/rsz/test/BUILD
 +++ b/openroad/rsz/test/BUILD
-@@ -202,6 +202,7 @@ TESTS = [
+@@ -217,6 +217,7 @@ TESTS = [
      "repair_timing_path_group4",
      "repair_timing_path_group5",
      "repair_timing_path_group6",
 +    "repair_timing_path_group7",
+     "repair_timing_sequence_error",
      "repair_slew1",
      "repair_slew10",
-     "repair_slew11",
 diff --git a/openroad/rsz/test/repair_timing_path_group7.ok b/openroad/rsz/test/repair_timing_path_group7.ok
 new file mode 100644
-index 0000000..8cfca3e
+index 0000000000..8cfca3e3d6
 --- /dev/null
 +++ b/openroad/rsz/test/repair_timing_path_group7.ok
 @@ -0,0 +1,30 @@
@@ -237,7 +237,7 @@ index 0000000..8cfca3e
 +doomed_group names a net: 0
 diff --git a/openroad/rsz/test/repair_timing_path_group7.tcl b/openroad/rsz/test/repair_timing_path_group7.tcl
 new file mode 100644
-index 0000000..02dbcff
+index 0000000000..02dbcff227
 --- /dev/null
 +++ b/openroad/rsz/test/repair_timing_path_group7.tcl
 @@ -0,0 +1,64 @@
