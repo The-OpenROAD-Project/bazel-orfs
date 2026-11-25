@@ -86,12 +86,10 @@ bazel_dep(name = "tcl_lang", version = "9.0.2.bcr.2")
 # dropped for non-root modules). It also lets downstream roots reference
 # the plugin label.
 #
-# From the BCR, at the release OpenROAD #12112 and #12055 move OpenROAD
-# to. Until then OpenROAD asks for 2026-10-13, its third-party/sv-elab
-# submodule behind a local_path_override that only its own root honours,
-# and no such release exists; the version below answers every request.
+# From the BCR, at the release OpenROAD asks for: its syn compiles
+# sv-elab's sources against its own backend, so the two move together.
 # The plugin and OpenROAD's syn share this one frontend.
-bazel_dep(name = "sv-elab", version = "2026-10-29")
+bazel_dep(name = "sv-elab", version = "2026-11-24")
 single_version_override(
     module_name = "sv-elab",
     patch_strip = 1,
@@ -104,12 +102,6 @@ single_version_override(
         # lookup finds. Not upstreamed; retires at an sv-elab release that
         # carries it.
         "//patches:sv-elab-0001-redefinition-shares-wire.patch",
-        # The plugin's headers were staged at two paths, src/ and
-        # _virtual_includes/; on remote execution those are distinct inodes,
-        # so #pragma once let slang_frontend.h be included twice. Copied from
-        # OpenROAD's root MODULE.bazel (bazel/sv-elab-patches), which a
-        # dependency's override does not reach; retires with OpenROAD's.
-        "//patches:sv-elab-0002-avoid-duplicate-header-paths.patch",
         # A module's ports had no port_id, so yosys ordered them by the
         # order their names were first interned in the process: the same
         # definition got one port order alone and another under a parent,
@@ -122,7 +114,7 @@ single_version_override(
         # carries it.
         "//patches:sv-elab-0003-ports-in-declaration-order.patch",
     ],
-    version = "2026-10-29",
+    version = "2026-11-24",
 )
 
 # OpenROAD's web viewer bundles npm packages with rules_js, which below
@@ -584,27 +576,11 @@ git_override(
     remote = "https://github.com/keplertech/kepler-formal.git",
 )
 
-# kepler-formal's naja asks for sv-lang 11.0.0-20260701-b60d729d.bcr.1,
-# whose registry source is GitHub's archive of slang b60d729d. Those bytes
-# are not stable: slang's .git_archival.txt is export-subst, and GitHub
-# regenerates it with a longer abbreviated describe as the repository
-# grows, which changes the archive's checksum while every source file
-# stays the same. A git checkout of the commit is fixed by its hash. The
-# registry's overlay and patch are carried, and patch_cmds rebuild the
-# archive's layout (the tree under slang-<commit>/) that the overlay
-# BUILD.bazel expects. Retires when kepler-formal's naja moves to an
-# sv-lang whose registry source is a release asset or a git commit.
-git_override(
+# sv-elab asks for sv-lang 12.1.0.bcr.1 and OpenROAD's syn compiles
+# sv-elab's sources, so that release answers kepler-formal's naja too.
+single_version_override(
     module_name = "sv-lang",
-    commit = "b60d729d66b9cdeec158b800f898461a138d505e",
-    patch_cmds = [
-        "mkdir slang-b60d729d66b9cdeec158b800f898461a138d505e",
-        "find . -mindepth 1 -maxdepth 1 ! -name slang-b60d729d66b9cdeec158b800f898461a138d505e ! -name .bcr-overlay ! -name .git -exec mv {} slang-b60d729d66b9cdeec158b800f898461a138d505e/ \\;",
-        "cp -R .bcr-overlay/. . && rm -rf .bcr-overlay",
-    ],
-    patch_strip = 1,
-    patches = ["//patches:sv-lang-0001-bcr-overlay.patch"],
-    remote = "https://github.com/MikePopoloski/slang.git",
+    version = "12.1.0.bcr.1",
 )
 
 # --- Verilator, dev-only -----------------------------------------------
