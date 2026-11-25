@@ -1410,7 +1410,9 @@ class TestOpenroadPinnedPatchesInlined(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as ws:
             target = os.path.join(ws, "MODULE.bazel")
-            shutil.copyfile(os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), target)
+            shutil.copyfile(
+                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), target
+            )
             bump.bump(
                 target,
                 fetch_commit_fn=mock_fetch_commit,
