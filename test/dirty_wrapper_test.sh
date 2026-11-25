@@ -116,8 +116,8 @@ check "a tree //:deps installed is named, with the move that carries it on" \
     '[ $RC -ne 0 ] && grep -q "installed by //:deps, now //:dirty" <<<"$OUT" && grep -q "mv tmp/old/.deps tmp/old/.dirty" <<<"$OUT"'
 
 run next place --dir "$T"
-check "next asks Bazel for the stage's inputs, not its results" \
-    'grep -q -- "--output_groups=deps_inputs //test:lb_place" "$CALLS"'
+check "next asks Bazel for the stage's scripts, not the stages before it" \
+    'grep -q -- "--output_groups=deps_scripts //test:lb_place" "$CALLS" && ! grep -q -- "deps_inputs" "$CALLS"'
 
 # an install whose execroot lacks another repository's link (a build for
 # another tree in between planted a different set): the file is in the
@@ -131,6 +131,27 @@ printf 'external/repo+/flow/s.tcl\trepo+/flow/s.tcl\tscript\nbazel-out/bin/make\
 STUB_ROOT="$R" run start //test:lb2 place
 check "another repository's file is installed from the output base" \
     '! grep -q "is not built" <<<"$OUT" && [ "$(readlink "$WS/tmp/test/lb2/repo+/flow/s.tcl")" = "$R/ob/external/repo+/flow/s.tcl" ]'
+
+# next after a stage run by hand: its log is in the tree but not in Bazel's
+# output tree, as Bazel never ran that stage; next keeps the tree's copy and
+# does not ask Bazel to build the stages before it
+T3="$WS/tmp/test/lb3"
+mkdir -p "$T3/_main/results" "$T3/_main/logs" "$R/execroot/bazel-out/bin/flow"
+printf 'flow //test:lb3\nvariant base\ntree 0123 dirty\n' >"$T3/.dirty"
+echo odb >"$T3/_main/results/2_floorplan.odb"
+echo by-hand >"$T3/_main/logs/2_floorplan.json"
+echo place >"$R/execroot/bazel-out/bin/flow/place.tcl"
+echo "export A?=1" >"$R/execroot/bazel-out/bin/config.mk"
+printf 'bazel-out/bin/config.mk\t_main/config.mk\tinput\nbazel-out/bin/flow/place.tcl\t_main/flow/place.tcl\tinput\nbazel-out/bin/logs/2_floorplan.json\t_main/logs/2_floorplan.json\tinput\nbazel-out/bin/results/2_floorplan.odb\t_main/results/2_floorplan.odb\tresult\nbazel-out/bin/make\tmake\ttool\n' \
+    >"$R/execroot/bazel-out/bin/lb_deps_manifest.txt"
+STUB_ROOT="$R" run next place --dir "$T3"
+check "next after a hand-run stage installs the scripts and keeps the tree's files" \
+    '[ $RC -eq 0 ] && ! grep -q -- "deps_inputs" "$CALLS" && [ "$(cat "$T3/_main/logs/2_floorplan.json")" = by-hand ] && [ -f "$T3/_main/flow/place.tcl" ]'
+
+rm "$T3/_main/logs/2_floorplan.json"
+STUB_ROOT="$R" run next place --dir "$T3"
+check "next asks for the stage's inputs when the tree lacks one" \
+    'grep -q -- "--output_groups=deps_inputs //test:lb3_place" "$CALLS"'
 
 if [ "$FAILS" -gt 0 ]; then
     echo "$FAILS failed"

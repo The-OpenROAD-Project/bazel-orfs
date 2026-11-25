@@ -149,6 +149,9 @@ install_tree() {
         # build's, and a build for another tree in between may have
         # planted a different set
         case "$src" in external/*) from="$outbase/$src" ;; esac
+        if [ ! -e "$from" ] && [ ! -L "$from" ] && [ "$mode" = keep-results ] && [ -e "$dst/$to" ]; then
+            continue
+        fi
         mkdir -p "$(dirname "$dst/$to")"
         rm -rf "${dst:?}/$to"
         if [ -L "$from" ] && [ "${src#external/}" = "$src" ]; then
@@ -221,6 +224,24 @@ results_missing() {
         case "$to" in _main/external/*) continue ;; esac
         case "$to" in */results/*) ;; *) continue ;; esac
         [ -e "$dst/$to" ] || {
+            echo "$to"
+            return
+        }
+    done <"$execroot/$manifest"
+}
+
+# inputs_absent <manifest> <dir>: the first file the stage reads, an earlier
+# stage's result aside, that is neither built nor already in the tree
+inputs_absent() {
+    local manifest="$1" dst="$2" execroot outbase src to kind from
+    execroot="$(bz info execution_root 2>/dev/null)"
+    outbase="$(bz info output_base 2>/dev/null)"
+    while IFS=$'\t' read -r src to kind; do
+        [ -n "$src" ] && [ "$kind" != result ] || continue
+        case "$to" in _main/external/*) continue ;; esac
+        from="$execroot/$src"
+        case "$src" in external/*) from="$outbase/$src" ;; esac
+        [ -e "$from" ] || [ -L "$from" ] || [ -e "$dst/$to" ] || {
             echo "$to"
             return
         }
@@ -392,7 +413,13 @@ next)
     FLOW="$(tree_value flow)"
     VARIANT="$(tree_value variant)"
     TARGET="$(stage_target "$FLOW" "$STAGE" "$VARIANT")"
-    MANIFEST="$(build_group "$TARGET" deps_inputs)"
+    # The stage's scripts only: deps_inputs also builds the earlier stages,
+    # and one run by hand here is not in Bazel's cache, so Bazel would run
+    # it again before installing what the tree already has.
+    MANIFEST="$(build_group "$TARGET" deps_scripts)"
+    if [ -n "$(inputs_absent "$MANIFEST" "$DIR")" ]; then
+        MANIFEST="$(build_group "$TARGET" deps_inputs)"
+    fi
     missing="$(results_missing "$MANIFEST" "$DIR")"
     if [ -n "$missing" ]; then
         die "$STAGE needs ${missing#_main/}, which this tree does not have yet: run the stage before it here, or 'start $FLOW $STAGE' to have Bazel build it"
