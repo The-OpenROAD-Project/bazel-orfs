@@ -11,6 +11,9 @@ LIBERTY = ["@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_%s_RVT_FF_nldm_%s.l
     ("INVBUF", "220122"),
 ]]
 
+# yosys from its runfiles tree: it looks for share/ and yosys-abc beside
+# /proc/self/exe, and on a remote executor only the runfiles tree holds
+# them there.
 genrule(
     name = "abc_new_log",
     srcs = ["top.v"] + LIBERTY,
@@ -26,7 +29,7 @@ genrule(
         for i, lib in enumerate(LIBERTY)
     ] + [
         "status=0",
-        "$(location @yosys) -l $@ -p \"read_verilog $(location top.v); synth -top top -run :fine; techmap; abc_new $$LIBARGS\" > /dev/null 2>&1 || status=$$?",
+        "$(execpath @yosys).runfiles/$(rlocationpath @yosys) -l $@ -p \"read_verilog $(location top.v); synth -top top -run :fine; techmap; abc_new $$LIBARGS\" > /dev/null 2>&1 || status=$$?",
         "echo \"yosys exit $$status\" >> $@",
     ]),
     tools = ["@yosys"],

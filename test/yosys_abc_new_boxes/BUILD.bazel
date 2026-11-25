@@ -19,6 +19,9 @@ LIBERTY = ["@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_%s_RVT_FF_nldm_%s.l
 # The liberty cells as ORFS's synth_stdcells.tcl reads them: the -wb
 # -unit_delay models are what makes them, and the mapped boxes, carry
 # timing for abc_new.
+# yosys from its runfiles tree: it looks for share/ and yosys-abc beside
+# /proc/self/exe, and on a remote executor only the runfiles tree holds
+# them there.
 genrule(
     name = "abc_new_log",
     srcs = ["boxes.v"] + LIBERTY,
@@ -26,7 +29,7 @@ genrule(
     cmd = " && ".join([
         "LIBS=\"{}\"".format(" ".join(["$(location {})".format(lib) for lib in LIBERTY])),
         "LIBARGS=$$(for l in $$LIBS; do printf -- '-liberty %s ' $$l; done)",
-        "$(location @yosys//:yosys) -q -l $@ -p \"" + "; ".join([
+        "$(execpath @yosys).runfiles/$(rlocationpath @yosys) -q -l $@ -p \"" + "; ".join([
             "read_liberty -overwrite -setattr liberty_cell -lib $$LIBS",
             "read_liberty -overwrite -setattr liberty_cell -unit_delay -wb -ignore_miss_func -ignore_buses $$LIBS",
             "read_verilog $(location boxes.v)",
