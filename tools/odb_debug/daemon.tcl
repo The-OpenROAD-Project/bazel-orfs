@@ -739,7 +739,10 @@ set od_watchdog {
   # parent reaps openroad only once this shell has exited too: an exited
   # openroad is a zombie until then, and kill -0 still finds a zombie.
   alive() {
-    state=$(ps -o stat= -p "$pid" 2>/dev/null) && [ "${state#Z}" = "$state" ]
+    # /proc, not ps: the FHS environment Bazel runs actions in has no ps
+    { read -r stat < "/proc/$pid/stat"; } 2>/dev/null || return 1
+    stat=${stat##*) }
+    [ "${stat%% *}" != Z ]
   }
   low_memory() {
     total= avail=
