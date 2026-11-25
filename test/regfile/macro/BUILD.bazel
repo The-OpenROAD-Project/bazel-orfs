@@ -144,13 +144,15 @@ orfs_flow(
     verilog_files = [":wide_top.sv"],
 )
 
-# scoped to the 200 worst endpoints: every endpoint (16,896) took 206 s,
-# and what is checked does not depend on the scope; a 1 ps target, which
-# every reg2reg endpoint is over, so the mass is counted at each
+# scoped to the 1000 worst endpoints: the parent's own registers, about
+# 260, come first, and the scope reaches past them into the RegFile's
+# storage flops, which test_skew_reaches_into_the_block needs; every
+# endpoint (16,896) costs more. A 1 ps target, which every reg2reg
+# endpoint is over, so the mass is counted at each
 orfs_headroom(
     name = "wide_top_headroom",
     blocks = {"RegFile": ":RegFile_grt"},
-    ends = 200,
+    ends = 1000,
     parent = "wide_top",
     parent_stage = ":wide_top_grt_hr_grt",
     target = 1,
