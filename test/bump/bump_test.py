@@ -229,14 +229,14 @@ def setUpModule():
     real files are copied in beside them.
     """
     tmp = tempfile.gettempdir()
-    shutil.copy2(
+    shutil.copyfile(
         os.path.join(REPO_ROOT, bump.ORFS_SOURCE_BZL),
         os.path.join(tmp, bump.ORFS_SOURCE_BZL),
     )
     for path in CARRIED_ORFS_PATCHES:
         dest = os.path.join(tmp, path)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        shutil.copy2(os.path.join(REPO_ROOT, path), dest)
+        shutil.copyfile(os.path.join(REPO_ROOT, path), dest)
 
 
 def apply_bump(
@@ -252,7 +252,7 @@ def apply_bump(
     src = os.path.join(FIXTURES_DIR, fixture_name)
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".MODULE.bazel", delete=False)
     tmp.close()
-    shutil.copy2(src, tmp.name)
+    shutil.copyfile(src, tmp.name)
 
     bump.bump(
         tmp.name,
@@ -319,7 +319,7 @@ class TestOrfsPatchPairingThroughBump(unittest.TestCase):
         src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
         tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
         tmp.close()
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
         try:
             with open(tmp.name) as f:
                 before = f.read()
@@ -378,7 +378,7 @@ archive_override(
 
         ws = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, ws)
-        shutil.copy2(
+        shutil.copyfile(
             os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"),
             os.path.join(ws, "MODULE.bazel"),
         )
@@ -689,7 +689,7 @@ class TestOpenroadDoubleBumpIdempotent(unittest.TestCase):
             mode="w", suffix=".MODULE.bazel", delete=False
         )
         tmp.close()
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
 
         kwargs = dict(
             fetch_commit_fn=mock_fetch_commit,
@@ -727,7 +727,7 @@ class TestUnchangedPinSkipsRehash(unittest.TestCase):
             mode="w", suffix=".MODULE.bazel", delete=False
         )
         tmp.close()
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
 
         calls = []
 
@@ -795,7 +795,7 @@ class TestNetworkErrorHandling(unittest.TestCase):
             src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
             tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
             tmp.close()
-            shutil.copy2(src, tmp.name)
+            shutil.copyfile(src, tmp.name)
             try:
                 bump.bump(
                     tmp.name,
@@ -865,7 +865,7 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
             mode="w", suffix=".MODULE.bazel", delete=False
         )
         tmp.close()
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
 
         kwargs = dict(
             fetch_commit_fn=mock_fetch_commit,
@@ -1410,7 +1410,7 @@ class TestOpenroadPinnedPatchesInlined(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as ws:
             target = os.path.join(ws, "MODULE.bazel")
-            shutil.copy2(os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), target)
+            shutil.copyfile(os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), target)
             bump.bump(
                 target,
                 fetch_commit_fn=mock_fetch_commit,
@@ -1626,7 +1626,7 @@ class TestOrfsFollowsPinnedBazelOrfs(unittest.TestCase):
         tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
         tmp.close()
         self.addCleanup(os.unlink, tmp.name)
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
         bump.bump(
             tmp.name,
             fetch_commit_fn=mock_fetch_commit,
@@ -1705,7 +1705,7 @@ class TestOrfsFollowsPinnedBazelOrfs(unittest.TestCase):
         tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
         tmp.close()
         self.addCleanup(os.unlink, tmp.name)
-        shutil.copy2(src, tmp.name)
+        shutil.copyfile(src, tmp.name)
         with open(tmp.name) as f:
             before = f.read()
         with self.assertRaisesRegex(bump.BumpError, "--orfs=head"):
@@ -2923,7 +2923,7 @@ archive_override(
 
         ws = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, ws)
-        shutil.copy2(
+        shutil.copyfile(
             os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"),
             os.path.join(ws, "MODULE.bazel"),
         )
