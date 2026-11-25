@@ -63,7 +63,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 sdc/test/sdc_write_collections.tcl
 
 diff --git a/openroad/sta/sdc/WriteSdc.cc b/openroad/sta/sdc/WriteSdc.cc
-index abc70e67..1cbf6dea 100644
+index abc70e6..1cbf6de 100644
 --- a/openroad/sta/sdc/WriteSdc.cc
 +++ b/openroad/sta/sdc/WriteSdc.cc
 @@ -27,6 +27,7 @@
@@ -182,7 +182,7 @@ index abc70e67..1cbf6dea 100644
  WriteSdc::writeExceptionThru(ExceptionThru *thru) const
  {
 diff --git a/openroad/sta/sdc/WriteSdcPvt.hh b/openroad/sta/sdc/WriteSdcPvt.hh
-index e3572be5..935c16dc 100644
+index e3572be..935c16d 100644
 --- a/openroad/sta/sdc/WriteSdcPvt.hh
 +++ b/openroad/sta/sdc/WriteSdcPvt.hh
 @@ -24,6 +24,7 @@
@@ -220,7 +220,7 @@ index e3572be5..935c16dc 100644
  
  } // namespace sta
 diff --git a/openroad/sta/sdc/test/CMakeLists.txt b/openroad/sta/sdc/test/CMakeLists.txt
-index 5f398b36..c5638eba 100644
+index 5f398b3..c5638eb 100644
 --- a/openroad/sta/sdc/test/CMakeLists.txt
 +++ b/openroad/sta/sdc/test/CMakeLists.txt
 @@ -40,6 +40,7 @@ sta_module_tests("sdc"
@@ -232,7 +232,7 @@ index 5f398b36..c5638eba 100644
      write_roundtrip_full
  )
 diff --git a/openroad/sta/sdc/test/sdc_exc_override1.sdcok b/openroad/sta/sdc/test/sdc_exc_override1.sdcok
-index b3a1fd99..19328bee 100644
+index b3a1fd9..19328be 100644
 --- a/openroad/sta/sdc/test/sdc_exc_override1.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_override1.sdcok
 @@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
@@ -256,7 +256,7 @@ index b3a1fd99..19328bee 100644
      -from [list [get_ports {in1}]\
             [get_ports {in2}]]\
 diff --git a/openroad/sta/sdc/test/sdc_exc_override2.sdcok b/openroad/sta/sdc/test/sdc_exc_override2.sdcok
-index b3a1fd99..19328bee 100644
+index b3a1fd9..19328be 100644
 --- a/openroad/sta/sdc/test/sdc_exc_override2.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_override2.sdcok
 @@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
@@ -280,7 +280,7 @@ index b3a1fd99..19328bee 100644
      -from [list [get_ports {in1}]\
             [get_ports {in2}]]\
 diff --git a/openroad/sta/sdc/test/sdc_exc_override3.sdcok b/openroad/sta/sdc/test/sdc_exc_override3.sdcok
-index 1e926a48..d19f8236 100644
+index 1e926a4..d19f823 100644
 --- a/openroad/sta/sdc/test/sdc_exc_override3.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_override3.sdcok
 @@ -15,8 +15,7 @@ set_output_delay 3.000000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1
@@ -304,7 +304,7 @@ index 1e926a48..d19f8236 100644
      -from [list [get_ports {in1}]\
             [get_ports {in2}]]\
 diff --git a/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok b/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
-index 4a7014d0..cca88c5d 100644
+index 4a7014d..cca88c5 100644
 --- a/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_override_unset.sdcok
 @@ -15,8 +15,7 @@ set_output_delay 3.0000 -clock [get_clocks {clk1}] -add_delay [get_ports {out1}]
@@ -328,7 +328,7 @@ index 4a7014d0..cca88c5d 100644
      -from [list [get_ports {in1}]\
             [get_ports {in2}]]\
 diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
-index 755f2939..e54abfff 100644
+index 755f293..e54abff 100644
 --- a/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_thru_complex1.sdcok
 @@ -102,8 +102,7 @@ set_false_path\
@@ -342,7 +342,7 @@ index 755f2939..e54abfff 100644
      -through [get_nets {n1}]\
      -to [get_ports {out1}]
 diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
-index 755f2939..e54abfff 100644
+index 755f293..e54abff 100644
 --- a/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_thru_complex2.sdcok
 @@ -102,8 +102,7 @@ set_false_path\
@@ -356,7 +356,7 @@ index 755f2939..e54abfff 100644
      -through [get_nets {n1}]\
      -to [get_ports {out1}]
 diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
-index b6b84144..fc6b9d66 100644
+index b6b8414..fc6b9d6 100644
 --- a/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_thru_complex3.sdcok
 @@ -102,8 +102,7 @@ set_false_path\
@@ -370,7 +370,7 @@ index b6b84144..fc6b9d66 100644
      -through [get_nets {n1}]\
      -to [get_ports {out1}]
 diff --git a/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok b/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
-index 431440c3..0d07788f 100644
+index 431440c..0d07788 100644
 --- a/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exc_thru_complex_unset.sdcok
 @@ -77,8 +77,7 @@ set_false_path\
@@ -384,7 +384,7 @@ index 431440c3..0d07788f 100644
      -rise_through [get_nets {n4}]\
      -to [get_ports {out2}]
 diff --git a/openroad/sta/sdc/test/sdc_exception_thru1.sdcok b/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
-index f17272a4..2222c21c 100644
+index f17272a..2222c21 100644
 --- a/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exception_thru1.sdcok
 @@ -40,8 +40,7 @@ set_false_path\
@@ -398,7 +398,7 @@ index f17272a4..2222c21c 100644
      -through [get_nets {n1}]\
      -to [get_ports {out1}]
 diff --git a/openroad/sta/sdc/test/sdc_exception_thru2.sdcok b/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
-index 1a4a2997..b5c87fe7 100644
+index 1a4a299..b5c87fe 100644
 --- a/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exception_thru2.sdcok
 @@ -48,8 +48,7 @@ set_false_path -setup\
@@ -412,7 +412,7 @@ index 1a4a2997..b5c87fe7 100644
  # Environment
  ###############################################################################
 diff --git a/openroad/sta/sdc/test/sdc_exception_thru3.sdcok b/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
-index 1a4a2997..b5c87fe7 100644
+index 1a4a299..b5c87fe 100644
 --- a/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
 +++ b/openroad/sta/sdc/test/sdc_exception_thru3.sdcok
 @@ -48,8 +48,7 @@ set_false_path -setup\
@@ -427,7 +427,7 @@ index 1a4a2997..b5c87fe7 100644
  ###############################################################################
 diff --git a/openroad/sta/sdc/test/sdc_write_collections.ok b/openroad/sta/sdc/test/sdc_write_collections.ok
 new file mode 100644
-index 00000000..1251b696
+index 0000000..1251b69
 --- /dev/null
 +++ b/openroad/sta/sdc/test/sdc_write_collections.ok
 @@ -0,0 +1,28 @@
@@ -461,7 +461,7 @@ index 00000000..1251b696
 +###############################################################################
 diff --git a/openroad/sta/sdc/test/sdc_write_collections.tcl b/openroad/sta/sdc/test/sdc_write_collections.tcl
 new file mode 100644
-index 00000000..fa3e3bc4
+index 0000000..fa3e3bc
 --- /dev/null
 +++ b/openroad/sta/sdc/test/sdc_write_collections.tcl
 @@ -0,0 +1,19 @@

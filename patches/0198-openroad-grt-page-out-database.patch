@@ -23,10 +23,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 15 insertions(+)
 
 diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
-index 5a11bbf..7bfd2c5 100644
+index f5f7f39e55..0c87c7d3f1 100644
 --- a/openroad/grt/src/GlobalRouter.cpp
 +++ b/openroad/grt/src/GlobalRouter.cpp
-@@ -262,6 +262,8 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
+@@ -280,6 +280,8 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
    fastroute_->pageOutGrid();
    std::vector<Net*> nets = initNets(check_pin_placement);
    initNetlist(nets);
@@ -35,7 +35,7 @@ index 5a11bbf..7bfd2c5 100644
    fastroute_->prefetchGrid();
  
    initialized_ = true;
-@@ -275,6 +277,9 @@ void GlobalRouter::applyAdjustments(int min_routing_layer,
+@@ -293,6 +295,9 @@ void GlobalRouter::applyAdjustments(int min_routing_layer,
    reportMacrosAndBlockages();
    std::vector<int> track_space = grid_->getTrackPitches();
    fastroute_->initBlockedIntervals(track_space);
@@ -45,7 +45,7 @@ index 5a11bbf..7bfd2c5 100644
    // Save global resources before add adjustment by layer
    fastroute_->saveResourcesBeforeAdjustments();
    computeUserGlobalAdjustments(min_routing_layer, max_routing_layer);
-@@ -536,6 +541,16 @@ void GlobalRouter::globalRoute(bool save_guides)
+@@ -595,6 +600,16 @@ void GlobalRouter::globalRoute(bool save_guides)
    try {
      clear();
      block_ = db_->getChip()->getBlock();
@@ -64,4 +64,3 @@ index 5a11bbf..7bfd2c5 100644
      getMinMaxLayer(min_layer, max_layer);
 -- 
 2.53.0
-

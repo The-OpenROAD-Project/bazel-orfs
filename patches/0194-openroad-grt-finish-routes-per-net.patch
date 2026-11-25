@@ -30,10 +30,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  4 files changed, 91 insertions(+), 27 deletions(-)
 
 diff --git a/openroad/grt/include/grt/GlobalRouter.h b/openroad/grt/include/grt/GlobalRouter.h
-index 823154b..7038dcd 100644
+index 31d9a3233b..d4d7d0c5fc 100644
 --- a/openroad/grt/include/grt/GlobalRouter.h
 +++ b/openroad/grt/include/grt/GlobalRouter.h
-@@ -527,6 +527,12 @@ class GlobalRouter
+@@ -533,6 +533,12 @@ class GlobalRouter
                            int min_routing_layer,
                            int max_routing_layer);
    void connectPadPins(NetRouteMap& routes);
@@ -47,13 +47,13 @@ index 823154b..7038dcd 100644
                         const GSegment& seg1,
                         GSegment& new_seg,
 diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
-index b5b0cf8..3a10f74 100644
+index 5cb14dcf84..4ca381af36 100644
 --- a/openroad/grt/src/GlobalRouter.cpp
 +++ b/openroad/grt/src/GlobalRouter.cpp
-@@ -907,13 +907,43 @@ NetRouteMap GlobalRouter::findRouting(std::vector<Net*>& nets,
-   NetRouteMap routes;
-   if (!nets.empty()) {
-     fastroute_->setAllowCongestion(allow_congestion_);
+@@ -988,13 +988,43 @@ NetRouteMap GlobalRouter::findRouting(std::vector<Net*>& nets,
+     if (congestion_only_) {
+       return fastroute_->run();
+     }
 +    // Each route is finished (its remaining guides, pad pin connections,
 +    // merged segments) as FastRoute hands it over in one segment per GCell,
 +    // so the unmerged segments of every net never exist at once. Each step
@@ -100,7 +100,7 @@ index b5b0cf8..3a10f74 100644
      }
    }
  
-@@ -4274,34 +4304,49 @@ void GlobalRouter::addRemainingGuides(NetRouteMap& routes,
+@@ -4408,34 +4438,49 @@ void GlobalRouter::addRemainingGuides(NetRouteMap& routes,
                                        int max_routing_layer)
  {
    for (Net* net : nets) {
@@ -172,7 +172,7 @@ index b5b0cf8..3a10f74 100644
    }
  }
 diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
-index 40c2432..5f4622e 100644
+index 6f4679fdc9..e08b5ecd04 100644
 --- a/openroad/grt/src/fastroute/include/FastRoute.h
 +++ b/openroad/grt/src/fastroute/include/FastRoute.h
 @@ -5,6 +5,7 @@
@@ -183,7 +183,7 @@ index 40c2432..5f4622e 100644
  #include <limits>
  #include <memory>
  #include <set>
-@@ -289,6 +290,14 @@ class FastRouteCore
+@@ -290,6 +291,14 @@ class FastRouteCore
    void initBlockedIntervals(std::vector<int>& track_space);
    void initAuxVar();
    NetRouteMap run();
@@ -197,8 +197,8 @@ index 40c2432..5f4622e 100644
 +  }
    int totalOverflow() const { return total_overflow_; }
    bool has2Doverflow() const { return has_2D_overflow_; }
-   int getSnapshotBatchCount() const { return snapshot_batch_count_; }
-@@ -1069,6 +1078,7 @@ class FastRouteCore
+   void setCongestionOnly(bool congestion_only)
+@@ -1079,6 +1088,7 @@ class FastRouteCore
    bool snapshot_cleanup_active_ = false;
    bool has_non_soft_ndr_nets_ = false;
    std::string backing_file_;
@@ -207,10 +207,10 @@ index 40c2432..5f4622e 100644
    int detour_penalty_;
  };
 diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
-index 92d5bd3..645df25 100644
+index ff747d6eaa..09923089a4 100644
 --- a/openroad/grt/src/fastroute/src/FastRoute.cpp
 +++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
-@@ -1573,6 +1573,9 @@ NetRouteMap FastRouteCore::getRoutes()
+@@ -1580,6 +1580,9 @@ NetRouteMap FastRouteCore::getRoutes()
          }
        }
      }
@@ -222,4 +222,3 @@ index 92d5bd3..645df25 100644
    return routes;
 -- 
 2.53.0
-

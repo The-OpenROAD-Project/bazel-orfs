@@ -25,12 +25,12 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 openroad/ram/test/generate_array_asap7.tcl
 
 diff --git a/openroad/ram/src/ram.tcl b/openroad/ram/src/ram.tcl
-index ead7122d1a..fd7e24afe4 100644
+index 6ddc93c6d0..433a03c9c4 100644
 --- a/openroad/ram/src/ram.tcl
 +++ b/openroad/ram/src/ram.tcl
-@@ -576,3 +576,122 @@ proc generate_ram { args } {
+@@ -583,3 +583,122 @@ proc generate_ram { args } {
  
-   ram::ram_routing
+   ram::ram_report_power $clock_period $keys(-word_size)
  }
 +
 +sta::define_cmd_args "generate_array" {-spec file [generate_ram_netlist options]}
@@ -223,7 +223,5 @@ index 0000000000..90fc554d4f
 +}
 +
 +puts "pass"
-
 -- 
 2.53.0
-

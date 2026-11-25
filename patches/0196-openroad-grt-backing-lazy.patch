@@ -30,11 +30,11 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  4 files changed, 64 insertions(+), 26 deletions(-)
 
 diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
-index 0550502..5a11bbf 100644
+index 916ed57e85..f5f7f39e55 100644
 --- a/openroad/grt/src/GlobalRouter.cpp
 +++ b/openroad/grt/src/GlobalRouter.cpp
-@@ -257,8 +257,12 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
-   // Init the data structures to monitor 3D capacity during 2D phases
+@@ -275,8 +275,12 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
+   // rule takes more than one track reserves its capacity per layer.
    fastroute_->initEdgesCapacityPerLayer();
  
 +  // The nets are built from the database, not the grid: with a backing file
@@ -47,10 +47,10 @@ index 0550502..5a11bbf 100644
    initialized_ = true;
    return nets;
 diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
-index 5f4622e..1572cf9 100644
+index e08b5ecd04..45669a3825 100644
 --- a/openroad/grt/src/fastroute/include/FastRoute.h
 +++ b/openroad/grt/src/fastroute/include/FastRoute.h
-@@ -298,6 +298,9 @@ class FastRouteCore
+@@ -299,6 +299,9 @@ class FastRouteCore
    {
      route_finisher_ = std::move(finisher);
    }
@@ -59,9 +59,9 @@ index 5f4622e..1572cf9 100644
 +  void prefetchGrid() { backing_.willNeed(); }
    int totalOverflow() const { return total_overflow_; }
    bool has2Doverflow() const { return has_2D_overflow_; }
-   int getSnapshotBatchCount() const { return snapshot_batch_count_; }
+   void setCongestionOnly(bool congestion_only)
 diff --git a/openroad/grt/src/fastroute/include/FileBacking.h b/openroad/grt/src/fastroute/include/FileBacking.h
-index 158270e..9624337 100644
+index 158270e41f..9624337082 100644
 --- a/openroad/grt/src/fastroute/include/FileBacking.h
 +++ b/openroad/grt/src/fastroute/include/FileBacking.h
 @@ -11,12 +11,13 @@
@@ -111,7 +111,7 @@ index 158270e..9624337 100644
  
  }  // namespace grt
 diff --git a/openroad/grt/src/fastroute/src/FileBacking.cpp b/openroad/grt/src/fastroute/src/FileBacking.cpp
-index 9a8263b..207106a 100644
+index 9a8263b694..207106a178 100644
 --- a/openroad/grt/src/fastroute/src/FileBacking.cpp
 +++ b/openroad/grt/src/fastroute/src/FileBacking.cpp
 @@ -26,6 +26,7 @@ void FileBacking::reserve(utl::Logger* logger,
@@ -224,4 +224,3 @@ index 9a8263b..207106a 100644
    return 2 * sysconf(_SC_PAGESIZE);
 -- 
 2.53.0
-

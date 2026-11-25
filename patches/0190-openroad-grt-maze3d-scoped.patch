@@ -28,10 +28,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  3 files changed, 34 insertions(+), 5 deletions(-)
 
 diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
-index 5bbf8f7..e646615 100644
+index bdecc31adf..22be0049c6 100644
 --- a/openroad/grt/src/fastroute/include/FastRoute.h
 +++ b/openroad/grt/src/fastroute/include/FastRoute.h
-@@ -243,6 +243,8 @@ class FastRouteCore
+@@ -244,6 +244,8 @@ class FastRouteCore
    void setEdgeCapacity(int x1, int y1, int x2, int y2, int layer, int capacity);
    int getDbNetLayerEdgeCost(odb::dbNet* db_net, int layer);
    void initEdgesCapacityPerLayer();
@@ -41,7 +41,7 @@ index 5bbf8f7..e646615 100644
    void setBackingFile(const std::string& path) { backing_file_ = path; }
    void setNumAdjustments(int nAdjustments);
 diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
-index 22b3bbe..97234f0 100644
+index 3bea1af385..bd74b699d4 100644
 --- a/openroad/grt/src/fastroute/src/FastRoute.cpp
 +++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
 @@ -367,24 +367,48 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
@@ -98,7 +98,7 @@ index 22b3bbe..97234f0 100644
  void FastRouteCore::addVCapacity(int16_t verticalCapacity, int layer)
  {
    v_capacity_3D_[layer - 1] = verticalCapacity;
-@@ -2842,8 +2866,10 @@ NetRouteMap FastRouteCore::run()
+@@ -2865,8 +2889,10 @@ NetRouteMap FastRouteCore::run()
          short_edge_len = BIG_INT;
        }
  
@@ -110,7 +110,7 @@ index 22b3bbe..97234f0 100644
  
      // Disable estimate parasitics for grt incremental steps with
 diff --git a/openroad/grt/src/fastroute/src/maze3D.cpp b/openroad/grt/src/fastroute/src/maze3D.cpp
-index efecf2d..bfbed0c 100644
+index efecf2de7d..bfbed0c380 100644
 --- a/openroad/grt/src/fastroute/src/maze3D.cpp
 +++ b/openroad/grt/src/fastroute/src/maze3D.cpp
 @@ -644,6 +644,7 @@ void FastRouteCore::mazeRouteMSMDOrder3D(int expand,
@@ -123,4 +123,3 @@ index efecf2d..bfbed0c 100644
        in_region_[i][j] = false;
 -- 
 2.53.0
-

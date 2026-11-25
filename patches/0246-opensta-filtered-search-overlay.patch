@@ -207,7 +207,7 @@ index d04f982..c7cdb43 100644
  };
  
 diff --git a/openroad/sta/include/sta/Search.hh b/openroad/sta/include/sta/Search.hh
-index c3305d5..5119946 100644
+index 50873eb..ec60d19 100644
 --- a/openroad/sta/include/sta/Search.hh
 +++ b/openroad/sta/include/sta/Search.hh
 @@ -270,6 +270,31 @@ public:
@@ -260,7 +260,7 @@ index c3305d5..5119946 100644
    BfsFwdIterator *arrival_iter_;
    ArrivalVisitor *arrival_visitor_;
  
-@@ -755,6 +791,8 @@ protected:
+@@ -756,6 +792,8 @@ protected:
                           Edge *edge,
                           const Pin *to_pin,
                           Vertex *to_vertex);
@@ -269,7 +269,7 @@ index c3305d5..5119946 100644
    // Return false to stop visiting.
    [[nodiscard]] bool visitArc(const Pin *from_pin,
                                Vertex *from_vertex,
-@@ -820,6 +858,13 @@ public:
+@@ -821,6 +859,13 @@ public:
  
  protected:
    void init0();
@@ -283,7 +283,7 @@ index c3305d5..5119946 100644
    void seedArrivals(Vertex *vertex);
    void pruneCrprArrivals();
    void constrainedRequiredsInvalid(Vertex *vertex,
-@@ -831,6 +876,9 @@ protected:
+@@ -832,6 +877,9 @@ protected:
    bool clks_only_;
    TagGroupBldr *tag_bldr_;
    TagGroupBldr *tag_bldr_no_crpr_;
@@ -502,7 +502,7 @@ index e228f4d..e05da9b 100644
      VertexPathIterator from_iter(from_vertex, scene_, min_max_, nullptr, search_);
      while (from_iter.hasNext()) {
 diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
-index 0ff238b..f6eb12e 100644
+index e9356cd..3f0c13b 100644
 --- a/openroad/sta/search/Search.cc
 +++ b/openroad/sta/search/Search.cc
 @@ -81,6 +81,7 @@
@@ -1018,7 +1018,7 @@ index 0ff238b..f6eb12e 100644
      }
    }
    return true;
-@@ -2935,6 +3228,41 @@ Search::setVertexArrivals(Vertex *vertex,
+@@ -2963,6 +3256,41 @@ Search::setVertexArrivals(Vertex *vertex,
    }
  }
  
@@ -1060,7 +1060,7 @@ index 0ff238b..f6eb12e 100644
  void
  Search::insertFilteredArrivals(const VertexSeq &vertices)
  {
-@@ -3622,12 +3950,24 @@ RequiredCmp::requiredsInit(Vertex *vertex,
+@@ -3671,12 +3999,24 @@ RequiredCmp::requiredsInit(Vertex *vertex,
  {
    Search *search = sta->search();
    TagGroup *tag_group = search->tagGroup(vertex);
@@ -1091,7 +1091,7 @@ index 0ff238b..f6eb12e 100644
      }
    }
    else
-@@ -3746,11 +4086,10 @@ RequiredVisitor::visitFromToPath(const Pin *,
+@@ -3803,11 +4143,10 @@ RequiredVisitor::visitFromToPath(const Pin *,
                 from_tag->to_string(this));
      size_t path_index = from_path->pathIndex(this);
      const MinMax *req_min = min_max->opposite();
@@ -1107,10 +1107,10 @@ index 0ff238b..f6eb12e 100644
        Required from_required = delayDiff(to_required, arc_delay, this);
        debugPrint(debug_, "search", 3, "  to tag   {:2}: {}",
 diff --git a/openroad/sta/search/Sta.cc b/openroad/sta/search/Sta.cc
-index 52dd346..a7687f7 100644
+index d8c2424..9885262 100644
 --- a/openroad/sta/search/Sta.cc
 +++ b/openroad/sta/search/Sta.cc
-@@ -4034,11 +4034,14 @@ Sta::maxPathCountVertex() const
+@@ -4048,11 +4048,14 @@ Sta::maxPathCountVertex() const
  int
  Sta::vertexPathCount(Vertex *vertex) const
  {

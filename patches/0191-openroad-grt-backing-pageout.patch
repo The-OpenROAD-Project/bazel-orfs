@@ -30,7 +30,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  3 files changed, 21 insertions(+)
 
 diff --git a/openroad/grt/src/fastroute/include/FileBacking.h b/openroad/grt/src/fastroute/include/FileBacking.h
-index eb5d248..158270e 100644
+index eb5d248eb6..158270e41f 100644
 --- a/openroad/grt/src/fastroute/include/FileBacking.h
 +++ b/openroad/grt/src/fastroute/include/FileBacking.h
 @@ -34,6 +34,10 @@ class FileBacking
@@ -45,10 +45,10 @@ index eb5d248..158270e 100644
    static size_t pageSlack();
  
 diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
-index 97234f0..9ae09a4 100644
+index bd74b699d4..28f64def55 100644
 --- a/openroad/grt/src/fastroute/src/FastRoute.cpp
 +++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
-@@ -2901,6 +2901,10 @@ NetRouteMap FastRouteCore::run()
+@@ -2924,6 +2924,10 @@ NetRouteMap FastRouteCore::run()
      }
    }
  
@@ -60,7 +60,7 @@ index 97234f0..9ae09a4 100644
    net_ids_.clear();
    return routes;
 diff --git a/openroad/grt/src/fastroute/src/FileBacking.cpp b/openroad/grt/src/fastroute/src/FileBacking.cpp
-index ca999b3..9a8263b 100644
+index ca999b308e..9a8263b694 100644
 --- a/openroad/grt/src/fastroute/src/FileBacking.cpp
 +++ b/openroad/grt/src/fastroute/src/FileBacking.cpp
 @@ -15,6 +15,11 @@
@@ -92,4 +92,3 @@ index ca999b3..9a8263b 100644
    return 2 * sysconf(_SC_PAGESIZE);
 -- 
 2.53.0
-

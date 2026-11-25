@@ -16,10 +16,10 @@ targets this way.
  3 files changed, 13 insertions(+), 12 deletions(-)
 
 diff --git a/flow/Makefile b/flow/Makefile
-index 35e725d61..57db6708c 100644
+index 21795f536..7d3c40fd1 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
-@@ -374,21 +374,23 @@ $(OBJECTS_DIR)/copyright.txt:
+@@ -381,21 +381,23 @@ $(OBJECTS_DIR)/copyright.txt:
  	mkdir -p $(OBJECTS_DIR)
  	@touch $(OBJECTS_DIR)/copyright.txt
  
@@ -49,10 +49,10 @@ index 35e725d61..57db6708c 100644
  
  # Separate dependency checking and doing a step. This can
 diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
-index bce4e1e8b..6fca13054 100644
+index 52a063dfe..586489d3d 100644
 --- a/flow/scripts/variables.mk
 +++ b/flow/scripts/variables.mk
-@@ -131,7 +131,7 @@ OPENROAD_IS_VALID := $(if $(OPENROAD_EXE),$(shell test -x $(OPENROAD_EXE) && ech
+@@ -138,7 +138,7 @@ OPENROAD_IS_VALID := $(call command_is_valid,$(OPENROAD_EXE))
  export OPENROAD_ARGS = -no_init -threads $(NUM_CORES) $(OR_ARGS)
  export OPENROAD_CMD = $(OPENROAD_EXE) -exit $(OPENROAD_ARGS)
  export OPENROAD_NO_EXIT_CMD = $(OPENROAD_EXE) $(OPENROAD_ARGS)
@@ -61,17 +61,17 @@ index bce4e1e8b..6fca13054 100644
  export OPENROAD_WEB_CMD = $(OPENROAD_EXE) -web -threads $(NUM_CORES) $(OR_ARGS)
  
  export YOSYS_EXE ?= $(abspath $(FLOW_HOME)/../tools/install/yosys/bin/yosys)
-@@ -190,7 +190,7 @@ RESULTS_V = $(notdir $(sort $(wildcard $(RESULTS_DIR)/*.v)))
+@@ -197,7 +197,7 @@ RESULTS_V = $(notdir $(sort $(wildcard $(RESULTS_DIR)/*.v)))
  GDS_MERGED_FILE = $(RESULTS_DIR)/6_1_merged.$(STREAM_SYSTEM_EXT)
  
  define get_variables
--$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_GUI_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
-+$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_QT_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
+-$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_GUI_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID command_is_valid OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
++$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_QT_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID command_is_valid OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
  endef
  
  export UNSET_VARIABLES_NAMES := $(call get_variables,command% line environment% default automatic)
 diff --git a/flow/util/utils.mk b/flow/util/utils.mk
-index cf528baed..4e69e51ed 100644
+index 5e78a7c7b..8308e6865 100644
 --- a/flow/util/utils.mk
 +++ b/flow/util/utils.mk
 @@ -156,14 +156,13 @@ gallery: check-klayout $(RESULTS_DIR)/6_final_no_power.def $(RESULTS_DIR)/6_fina
@@ -93,7 +93,5 @@ index cf528baed..4e69e51ed 100644
  ## Quick access to command line
  .PHONY: command
  command:
-
 -- 
 2.53.0
-

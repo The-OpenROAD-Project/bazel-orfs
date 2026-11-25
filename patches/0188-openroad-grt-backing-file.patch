@@ -50,10 +50,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 openroad/grt/test/gcd_backing_file.tcl
 
 diff --git a/openroad/grt/BUILD b/openroad/grt/BUILD
-index b6552df..83ae4d5 100644
+index 12b555d7b0..835802cdd3 100644
 --- a/openroad/grt/BUILD
 +++ b/openroad/grt/BUILD
-@@ -60,6 +60,7 @@ cc_library(
+@@ -69,6 +69,7 @@ cc_library(
      name = "fastroute",
      srcs = [
          "src/fastroute/src/FastRoute.cpp",
@@ -61,7 +61,7 @@ index b6552df..83ae4d5 100644
          "src/fastroute/src/RSMT.cpp",
          "src/fastroute/src/RipUp.cpp",
          "src/fastroute/src/graph2d.cpp",
-@@ -70,6 +71,7 @@ cc_library(
+@@ -79,6 +80,7 @@ cc_library(
      ],
      hdrs = [
          "src/fastroute/include/FastRoute.h",
@@ -70,27 +70,27 @@ index b6552df..83ae4d5 100644
          "src/fastroute/include/Overflow.h",
      ],
 diff --git a/openroad/grt/README.md b/openroad/grt/README.md
-index 0bac740..810c6ae 100644
+index 294fb74934..ae4ed8cb94 100644
 --- a/openroad/grt/README.md
 +++ b/openroad/grt/README.md
-@@ -27,6 +27,7 @@ global_route
-     [-skip_large_fanout_nets fanout]
+@@ -28,6 +28,7 @@ global_route
      [-allow_congestion]
      [-snapshot_batched_width width]
+     [-congestion_only]
 +    [-backing_file file]
      [-verbose]
      [-start_incremental]
      [-end_incremental]
-@@ -56,6 +57,7 @@ global_route
- | `-res_aware_nets_percentage` | Set the percentage of resistance-aware nets (e.g. `-res_aware_nets_percentage 100` (for 100%)). The default value is `15` with resistance-aware enabled and `0` otherwise, and the allowed values are floats between `[0, 100]`. |
+@@ -58,6 +59,7 @@ global_route
  | `-infinite_cap` | Enables "infinite" gcell capacity for testing purpose. NOTE: this is not recommended for production flows. |
  | `-snapshot_batched_width` | Set the semantic width of snapshot-batched routing (max batches per wave). The default is `0`, preserving the non-batched behavior. Set a positive integer to enable batched routing; allowed values are integers `[1, MAX_INT]`. Execution width still follows `set_thread_count`. NOTE: this is not recommended for production flows; it is intended for exploration and research projects. |
+ | `-congestion_only` | Run FastRoute's initial 2D L-route congestion pass only, skipping rip-up/reroute, 3D layer assignment, and route guide generation. Useful for fast floorplan congestion estimation. An estimate that overflows is reported as a warning (GRT-0343), not as an error, with or without `-allow_congestion`. It cannot be combined with `-start_incremental`, `-end_incremental` or `-guide_file` (GRT-0344). The default is false. |
 +| `-backing_file` | Back the routing grid (the 2D and 3D edges and the capacity per layer) with a file at this path instead of memory alone, so the kernel pages it to the file rather than to swap. The file is reserved for the whole grid when the grid is set up, which fails at once if the disk cannot hold it, and is removed as soon as it is created. The routes are the same as without it. |
  
  ### Set Routing Layers
  
 diff --git a/openroad/grt/include/grt/GlobalRouter.h b/openroad/grt/include/grt/GlobalRouter.h
-index 15af3b0..823154b 100644
+index 71423c5a0b..31d9a3233b 100644
 --- a/openroad/grt/include/grt/GlobalRouter.h
 +++ b/openroad/grt/include/grt/GlobalRouter.h
 @@ -160,6 +160,7 @@ class GlobalRouter
@@ -100,20 +100,20 @@ index 15af3b0..823154b 100644
 +  void setBackingFile(const std::string& path);
    int getSnapshotBatchedWidth() const;
    int getSnapshotBatchCount() const;
-   bool isResistanceAware() { return resistance_aware_; };
-@@ -650,6 +651,7 @@ class GlobalRouter
-   bool allow_congestion_;
+   void setCongestionOnly(bool congestion_only)
+@@ -659,6 +660,7 @@ class GlobalRouter
    bool resistance_aware_{false};
    int snapshot_batched_width_{0};
+   bool congestion_only_ = false;
 +  std::string backing_file_;
    int num_threads_;
    std::vector<int> vertical_capacities_;
    std::vector<int> horizontal_capacities_;
 diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
-index f88db75..b5b0cf8 100644
+index c505f2c92c..5cb14dcf84 100644
 --- a/openroad/grt/src/GlobalRouter.cpp
 +++ b/openroad/grt/src/GlobalRouter.cpp
-@@ -127,6 +127,12 @@ void GlobalRouter::setSnapshotBatchedWidth(int snapshot_batched_width)
+@@ -129,6 +129,12 @@ void GlobalRouter::setSnapshotBatchedWidth(int snapshot_batched_width)
    fastroute_->setSnapshotBatchedWidth(snapshot_batched_width_);
  }
  
@@ -126,20 +126,20 @@ index f88db75..b5b0cf8 100644
  int GlobalRouter::getSnapshotBatchedWidth() const
  {
    return fastroute_->getSnapshotBatchedWidth();
-@@ -3192,6 +3198,7 @@ void GlobalRouter::configFastRoute()
-   fastroute_->setCongestionReportIterStep(congestion_report_iter_step_);
+@@ -3315,6 +3321,7 @@ void GlobalRouter::configFastRoute()
    fastroute_->setResistanceAware(resistance_aware_);
    fastroute_->setSnapshotBatchedWidth(snapshot_batched_width_);
+   fastroute_->setCongestionOnly(congestion_only_);
 +  fastroute_->setBackingFile(backing_file_);
  
    if (congestion_file_name_ != nullptr) {
      fastroute_->setCongestionReportFile(congestion_file_name_);
 diff --git a/openroad/grt/src/GlobalRouter.i b/openroad/grt/src/GlobalRouter.i
-index 13c7fad..e75ccab 100644
+index 51174477ef..b0e4b88360 100644
 --- a/openroad/grt/src/GlobalRouter.i
 +++ b/openroad/grt/src/GlobalRouter.i
-@@ -155,6 +155,12 @@ set_snapshot_batched_width(int snapshot_batched_width)
-   getGlobalRouter()->setSnapshotBatchedWidth(snapshot_batched_width);
+@@ -161,6 +161,12 @@ set_congestion_only(bool congestion_only)
+   getGlobalRouter()->setCongestionOnly(congestion_only);
  }
  
 +void
@@ -152,18 +152,18 @@ index 13c7fad..e75ccab 100644
  get_snapshot_batched_width()
  {
 diff --git a/openroad/grt/src/GlobalRouter.tcl b/openroad/grt/src/GlobalRouter.tcl
-index e5d82b8..8581b7e 100644
+index 3dac7e75b0..1a5582d467 100644
 --- a/openroad/grt/src/GlobalRouter.tcl
 +++ b/openroad/grt/src/GlobalRouter.tcl
-@@ -150,6 +150,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
-                                   [-skip_large_fanout_nets fanout] \
+@@ -151,6 +151,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
                                    [-allow_congestion] \
                                    [-snapshot_batched_width width] \
+                                   [-congestion_only] \
 +                                  [-backing_file file] \
                                    [-verbose] \
                                    [-start_incremental] \
                                    [-end_incremental] \
-@@ -163,7 +164,7 @@ proc global_route { args } {
+@@ -164,7 +165,7 @@ proc global_route { args } {
      keys {-guide_file -congestion_iterations -congestion_report_file \
            -grid_origin -critical_nets_percentage -res_aware_nets_percentage \
            -congestion_report_iter_step \
@@ -171,10 +171,10 @@ index e5d82b8..8581b7e 100644
 +          -skip_large_fanout_nets -snapshot_batched_width -backing_file
           } \
      flags {-allow_congestion -resistance_aware -infinite_cap -verbose -start_incremental \
-           -end_incremental -use_cugr}
-@@ -260,6 +261,12 @@ proc global_route { args } {
+           -end_incremental -use_cugr -congestion_only}
+@@ -278,6 +279,12 @@ proc global_route { args } {
    }
-   grt::set_snapshot_batched_width $snapshot_batched_width
+   grt::set_congestion_only [info exists flags(-congestion_only)]
  
 +  if { [info exists keys(-backing_file)] } {
 +    grt::set_backing_file $keys(-backing_file)
@@ -186,7 +186,7 @@ index e5d82b8..8581b7e 100644
    grt::set_infinite_cap $infinite_cap
  
 diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
-index 989caeb..5bbf8f7 100644
+index bdb1487304..bdecc31adf 100644
 --- a/openroad/grt/src/fastroute/include/FastRoute.h
 +++ b/openroad/grt/src/fastroute/include/FastRoute.h
 @@ -16,6 +16,7 @@
@@ -197,7 +197,7 @@ index 989caeb..5bbf8f7 100644
  #include "Graph2D.h"
  #include "Overflow.h"
  #include "boost/functional/hash.hpp"
-@@ -242,6 +243,8 @@ class FastRouteCore
+@@ -243,6 +244,8 @@ class FastRouteCore
    void setEdgeCapacity(int x1, int y1, int x2, int y2, int layer, int capacity);
    int getDbNetLayerEdgeCost(odb::dbNet* db_net, int layer);
    void initEdgesCapacityPerLayer();
@@ -206,7 +206,7 @@ index 989caeb..5bbf8f7 100644
    void setNumAdjustments(int nAdjustments);
    void addAdjustment(int x1,
                       int y1,
-@@ -1061,6 +1064,8 @@ class FastRouteCore
+@@ -1071,6 +1074,8 @@ class FastRouteCore
    bool snapshot_batch_disabled_for_run_ = false;
    bool snapshot_cleanup_active_ = false;
    bool has_non_soft_ndr_nets_ = false;
@@ -217,7 +217,7 @@ index 989caeb..5bbf8f7 100644
  
 diff --git a/openroad/grt/src/fastroute/include/FileBacking.h b/openroad/grt/src/fastroute/include/FileBacking.h
 new file mode 100644
-index 0000000..eb5d248
+index 0000000000..eb5d248eb6
 --- /dev/null
 +++ b/openroad/grt/src/fastroute/include/FileBacking.h
 @@ -0,0 +1,54 @@
@@ -276,7 +276,7 @@ index 0000000..eb5d248
 +
 +}  // namespace grt
 diff --git a/openroad/grt/src/fastroute/include/Graph2D.h b/openroad/grt/src/fastroute/include/Graph2D.h
-index d1a2749..6943770 100644
+index d1a274930b..6943770f0b 100644
 --- a/openroad/grt/src/fastroute/include/Graph2D.h
 +++ b/openroad/grt/src/fastroute/include/Graph2D.h
 @@ -15,6 +15,7 @@
@@ -300,7 +300,7 @@ index d1a2749..6943770 100644
                     int y,
                     int layer,
 diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
-index 285bf9e..22b3bbe 100644
+index 205eabdf68..3bea1af385 100644
 --- a/openroad/grt/src/fastroute/src/FastRoute.cpp
 +++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
 @@ -143,6 +143,7 @@ FastRouteCore::~FastRouteCore()
@@ -341,7 +341,7 @@ index 285bf9e..22b3bbe 100644
    invalidateOverflow3D();
    v_edges_3D_.resize(boost::extents[num_layers_][y_grid_][x_grid_]);
    h_edges_3D_.resize(boost::extents[num_layers_][y_grid_][x_grid_]);
-@@ -691,6 +708,7 @@ void FastRouteCore::setEdgeCapacity(int x1,
+@@ -698,6 +715,7 @@ void FastRouteCore::setEdgeCapacity(int x1,
  void FastRouteCore::initEdgesCapacityPerLayer()
  {
    graph2d_.initCap3D();
@@ -351,7 +351,7 @@ index 285bf9e..22b3bbe 100644
      for (int x = 0; x < x_grid_; x++) {
 diff --git a/openroad/grt/src/fastroute/src/FileBacking.cpp b/openroad/grt/src/fastroute/src/FileBacking.cpp
 new file mode 100644
-index 0000000..ca999b3
+index 0000000000..ca999b308e
 --- /dev/null
 +++ b/openroad/grt/src/fastroute/src/FileBacking.cpp
 @@ -0,0 +1,123 @@
@@ -479,7 +479,7 @@ index 0000000..ca999b3
 +
 +}  // namespace grt
 diff --git a/openroad/grt/src/fastroute/src/graph2d.cpp b/openroad/grt/src/fastroute/src/graph2d.cpp
-index 442b0bc..87c9c52 100644
+index 442b0bc6d5..87c9c525da 100644
 --- a/openroad/grt/src/fastroute/src/graph2d.cpp
 +++ b/openroad/grt/src/fastroute/src/graph2d.cpp
 @@ -1353,4 +1353,29 @@ void Graph2D::resetNDRCap()
@@ -513,7 +513,7 @@ index 442b0bc..87c9c52 100644
 +
  }  // namespace grt
 diff --git a/openroad/grt/test/BUILD b/openroad/grt/test/BUILD
-index fe2b1e4..1084522 100644
+index d93078dee2..ca4f780595 100644
 --- a/openroad/grt/test/BUILD
 +++ b/openroad/grt/test/BUILD
 @@ -43,6 +43,7 @@ TESTS = [
@@ -526,7 +526,7 @@ index fe2b1e4..1084522 100644
      "global_route_above_max_layer_cugr",
 diff --git a/openroad/grt/test/gcd_backing_file.ok b/openroad/grt/test/gcd_backing_file.ok
 new file mode 100644
-index 0000000..635c56c
+index 0000000000..635c56cc8a
 --- /dev/null
 +++ b/openroad/grt/test/gcd_backing_file.ok
 @@ -0,0 +1,68 @@
@@ -600,7 +600,7 @@ index 0000000..635c56c
 +No differences found.
 diff --git a/openroad/grt/test/gcd_backing_file.tcl b/openroad/grt/test/gcd_backing_file.tcl
 new file mode 100644
-index 0000000..85b6a4a
+index 0000000000..85b6a4ad0f
 --- /dev/null
 +++ b/openroad/grt/test/gcd_backing_file.tcl
 @@ -0,0 +1,12 @@
@@ -618,4 +618,3 @@ index 0000000..85b6a4a
 +diff_files gcd.guideok $guide_file
 -- 
 2.53.0
-
