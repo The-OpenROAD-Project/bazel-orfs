@@ -47,7 +47,7 @@ failure, open the previous stage's ODB and ask why (`/odb-debug` §0);
 the fix is often a floorplan, macro or RTL decision made stages earlier.
 A stage that stops on an error naming an object but no reason (DRT-0073,
 "No access point for <pin>") has the reason in its debug renderer; the
-odb-debug daemon steps it unattended (`/odb-debug` §3), no Qt build.
+odb-debug daemon steps it unattended (`/odb-debug` §3).
 The tests below separate that live loop from a deadlock or a race.
 
 Sample the *real* openroad process, not the `make`/`tee`/`bash -c` parent
@@ -235,7 +235,7 @@ debugger. Instead:
 - `chmod +x run.sh` **before** packaging. Tarball as `.tar.gz`.
 - **Do NOT ship the openroad binary in a bring-your-own reproducer.** A
   `@bazel-orfs//:dirty` tree or archive ships the pinned openroad (§3, for local staging), so when you
-  package a bundle from one **strip `openroad+/openroad` (and `-qt`)
+  package a bundle from one **strip `openroad+/openroad`
   first**: it's hundreds of MB of dead weight and muddies which binary is
   under test. Make `run.sh` take the openroad path as a *required* arg — no
   bundled default. (When the bundle drives the ORFS `make` wrapper, pass it as

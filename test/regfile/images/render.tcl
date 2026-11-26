@@ -1,8 +1,9 @@
 # One routed generate_ram block as a picture: run from an OpenROAD
-# checkout's src/ram/test, where routed.tcl and the PDKs' files are, with
-# a GUI build of openroad:
+# checkout's src/ram/test, where routed.tcl and the PDKs' files are. The
+# picture is the web viewer's, headless (save_image -web, as odb-debug's
+# image tool draws it); any openroad build has it:
 #
-#   PDK=asap7 ARGS="-w_ports 2 ..." OUT=/abs/x.png QT_QPA_PLATFORM=offscreen \
+#   PDK=asap7 ARGS="-w_ports 2 ..." OUT=/abs/x.png \
 #     openroad -exit -no_init -no_splash render.tcl
 source "helpers.tcl"
 source "routed.tcl"
@@ -38,5 +39,5 @@ switch $::env(PDK) {
 }
 generate_ram {*}$pdk {*}$::env(ARGS)
 routed::check
-save_image -resolution 0.01 $::env(OUT)
+save_image -web -resolution 0.01 $::env(OUT)
 puts "pass"

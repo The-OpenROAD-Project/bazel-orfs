@@ -90,10 +90,9 @@ EQUIV_PASS = re.compile(
 # Scripts yosys reads: by extension, or the argument of -s / -c.
 YOSYS_SCRIPT = re.compile(r"\.(?:ys|tcl|script)$")
 
-# The OpenROAD Qt GUI, run rather than built: `openroad-qt` or `openroad ...
-# -gui` in command position (behind env assignments, sudo/time/nohup or a
-# timeout), or `bazel run` of either. Building `@openroad//:openroad-qt` is
-# fine -- the human runs it. `-web` is odb-debug's own backend and stays open.
+# The OpenROAD Qt GUI, run: `openroad-qt` or `openroad ... -gui` in command
+# position (behind env assignments, sudo/time/nohup or a timeout), or `bazel
+# run` of either. `-web` is odb-debug's own backend and stays open.
 OPENROAD_GUI = re.compile(
     r"^(?:\w+=\S*\s+)*"
     r"(?:(?:sudo|time|nohup|xvfb-run|timeout(?:\s+-\S+)*\s+\S+)\s+)*"
@@ -101,6 +100,12 @@ OPENROAD_GUI = re.compile(
 )
 OPENROAD_GUI_RUN = re.compile(
     BAZEL + r"(?:\s+--?\S+)*\s+run\s[^;&|]*(?:openroad-qt(?![\w-])|\s-gui(?![\w-]))"
+)
+# The Qt binary, built: any bazel command naming `//:openroad-qt`, in
+# OpenROAD's repository or as `@openroad//:openroad-qt`. bazel-orfs's
+# OpenROAD has no Qt (patch 0251); the GUI is the web viewer.
+OPENROAD_QT_BUILD = re.compile(
+    BAZEL + r"\s[^;&|]*//:openroad-qt(?:_unstamped)?(?![\w-])"
 )
 # ORFS's qt_<stage> make target opens the Qt GUI too, from a tree's make
 # or `bazel run` of a stage; gui_<stage> is the web viewer, odb-debug's
@@ -470,8 +475,19 @@ OPENROAD_GUI_MESSAGE = (
 )
 
 
+OPENROAD_QT_BUILD_MESSAGE = (
+    "Building the Qt GUI is verboten: bazel-orfs's OpenROAD has no Qt (patch "
+    "0251), and the GUI is OpenROAD's web viewer, which every build has. Open "
+    "it with `bazelisk run <target>_<stage> gui_<stage>`, or start the "
+    "odb-debug daemon (`bazelisk run <stage>_odb_debug`) and ask the design "
+    "through the odb-debug MCP server."
+)
+
+
 def check_openroad_gui(request):
     for segment in segments(request.code):
+        if OPENROAD_QT_BUILD.search(segment):
+            return OPENROAD_QT_BUILD_MESSAGE
         if (
             OPENROAD_GUI.match(segment)
             or OPENROAD_GUI_RUN.search(segment)
@@ -552,11 +568,12 @@ RULES = (
     ),
     (
         "openroad-gui",
-        "Running the OpenROAD Qt GUI (`openroad-qt`, `openroad -gui`, "
-        "`make qt_<stage>`) is blocked; the agent cannot see it. Use the "
-        "odb-debug MCP server, and extend `tools/odb_debug` when no tool there "
-        "answers the question. Building `@openroad//:openroad-qt` and the web "
-        "viewer's `make gui_<stage>` stay allowed.",
+        "Running or building the OpenROAD Qt GUI (`openroad-qt`, "
+        "`openroad -gui`, `make qt_<stage>`, `@openroad//:openroad-qt`) is "
+        "blocked; the agent cannot see it, and bazel-orfs's OpenROAD has no "
+        "Qt. Use the odb-debug MCP server, and extend `tools/odb_debug` when "
+        "no tool there answers the question. The web viewer's "
+        "`make gui_<stage>` stays allowed.",
         check_openroad_gui,
     ),
     (
