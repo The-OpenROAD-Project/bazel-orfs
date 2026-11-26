@@ -1,0 +1,598 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 26 Nov 2026 10:11:46 +0100
+Subject: [PATCH] bazel: build no Qt, drop qt-bazel from the module graph
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Bazel build's openroad links the gui's Qt-free core; its GUI is the
+web viewer (//openroad/web). Qt was still in the module graph: MODULE.bazel
+had bazel_dep(qt-bazel), which has no BCR version and resolves only
+through a git_override in the root module, so every module that depends
+on openroad had to repeat that override, and openroad/gui/BUILD loaded
+@qt-bazel's build_defs.bzl at top level.
+
+Removed: the qt-bazel bazel_dep and git_override; the freetype pin, the
+icu override and its patch, and the macOS framework list, which exist
+only for Qt; the gui_qt, gui_qt_headless, uic_lib and qt_resources
+targets and the @qt-bazel load in openroad/gui; openroad-qt,
+openroad_lib_qt, openroad_qt_build_test and the --//:platform=gui
+branches (the flag keeps the value cli); the desktop entry the gui
+platform installed; the gui tests that need a Qt build.
+
+pcre2 is now a direct bazel_dep at 10.46-DEV, the version qt-bazel's
+glib raised it to: swig asks for 10.43, whose BUILD overlay calls the
+native cc_binary rule Bazel 9 removed.
+
+Not upstreamed. Carried in bazel-orfs; retires at a //:bump onto an
+OpenROAD whose Bazel build makes Qt optional, so a module that depends
+on openroad does not resolve qt-bazel.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ BUILD.bazel                                   | 101 +------------
+ MODULE.bazel                                  | 114 +--------------
+ ...ck-bazel-runfiles-before-dereference.patch |  24 ----
+ bazel/icu-patches/BUILD.bazel                 |   1 -
+ openroad/gui/BUILD                            | 133 +-----------------
+ openroad/gui/test/BUILD                       |  10 --
+ packaging/BUILD.bazel                         |  11 +-
+ 7 files changed, 14 insertions(+), 380 deletions(-)
+ delete mode 100644 bazel/icu-patches/0001-putil-null-check-bazel-runfiles-before-dereference.patch
+ delete mode 100644 bazel/icu-patches/BUILD.bazel
+
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 1bccb9bcaf..65d0a37ba5 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -2,7 +2,6 @@
+ # Copyright (c) 2025-2025, The OpenROAD Authors
+ 
+ load("@bazel_skylib//lib:selects.bzl", "selects")
+-load("@bazel_skylib//rules:build_test.bzl", "build_test")
+ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
+ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+@@ -41,24 +40,9 @@ string_flag(
+     build_setting_default = "cli",
+     values = [
+         "cli",
+-        "gui",
+     ],
+ )
+ 
+-config_setting(
+-    name = "platform_cli",
+-    flag_values = {
+-        ":platform": "cli",
+-    },
+-)
+-
+-config_setting(
+-    name = "platform_gui",
+-    flag_values = {
+-        ":platform": "gui",
+-    },
+-)
+-
+ # Set by --config=profile (see .bazelrc).
+ bool_flag(
+     name = "profile",
+@@ -247,7 +231,7 @@ cc_library(
+     ],
+ )
+ 
+-# Deps shared by :openroad and :openroad-qt. Kept as a Starlark list
++# Deps of :openroad. Kept as a Starlark list
+ # rather than a cc_library wrapper because layering_check is enabled
+ # package-wide: a deps-only cc_library does not re-export its deps'
+ # headers to consumers, so direct binary deps are what each Main.cc
+@@ -294,53 +278,15 @@ cc_binary(
+         "@platforms//os:macos": "@bazel_tools//tools/cpp:malloc",
+     }),
+     visibility = ["//bazel:__pkg__"],
+-    deps = OPENROAD_MAIN_DEPS + select(
+-        {
+-            ":platform_cli": [
+-                ":openroad_lib",
+-                "//openroad/gui",
+-            ],
+-            ":platform_gui": [
+-                ":openroad_lib_qt",
+-                "//openroad/gui:gui_qt",
+-            ],
+-        },
+-    ),
+-)
+-
+-stamped_binary(
+-    name = "openroad",
+-    binary = ":openroad_unstamped",
+-    visibility = ["//visibility:public"],
+-)
+-
+-# Qt GUI variant. Build explicitly when the interactive GUI is wanted:
+-#   bazelisk build //:openroad-qt
+-# Additive to the existing `--//:platform=gui //:openroad` flag path —
+-# this target is preferable for ad-hoc GUI builds because it does not
+-# invalidate `:openroad`'s cache the way flipping the flag does.
+-cc_binary(
+-    name = "openroad-qt_unstamped",
+-    srcs = [
+-        "openroad/Main.cc",
+-    ],
+-    copts = OPENROAD_COPTS,
+-    defines = OPENROAD_DEFINES,
+-    features = ["-use_header_modules"],
+-    linkopts = OPENROAD_LINKOPTS,
+-    malloc = select({
+-        "@platforms//os:linux": "@tcmalloc//tcmalloc",
+-        "@platforms//os:macos": "@bazel_tools//tools/cpp:malloc",
+-    }),
+     deps = OPENROAD_MAIN_DEPS + [
+-        ":openroad_lib_qt",
+-        "//openroad/gui:gui_qt",
++        ":openroad_lib",
++        "//openroad/gui",
+     ],
+ )
+ 
+ stamped_binary(
+-    name = "openroad-qt",
+-    binary = ":openroad-qt_unstamped",
++    name = "openroad",
++    binary = ":openroad_unstamped",
+     visibility = ["//visibility:public"],
+ )
+ 
+@@ -372,35 +318,6 @@ cc_library(
+     ] + OPENROAD_LIBRARY_DEPS,
+ )
+ 
+-# Qt variant: same sources, linked against the Qt GUI implementation.
+-# Used by :openroad-qt, and by :openroad when --//:platform=gui is set.
+-# Compiled separately (different `BUILD_GUI` define + different gui dep).
+-cc_library(
+-    name = "openroad_lib_qt",
+-    srcs = [
+-        "openroad/Design.cc",
+-        "openroad/OpenRoad.cc",
+-        "openroad/Tech.cc",
+-        "openroad/Timing.cc",
+-        ":openroad_swig",
+-        ":openroad_tcl",
+-    ],
+-    copts = OPENROAD_COPTS,
+-    defines = OPENROAD_DEFINES + ["BUILD_GUI=true"],
+-    features = ["-use_header_modules"],
+-    includes = [
+-        "include",
+-    ],
+-    visibility = ["//:__subpackages__"],
+-    deps = [
+-        "//openroad/gui:gui_qt",
+-        "//openroad/sta:opensta_lib",
+-        "@abseil-cpp//absl/base:core_headers",
+-        "@abseil-cpp//absl/synchronization",
+-        "@tcl_lang//:tcl",
+-    ] + OPENROAD_LIBRARY_DEPS,
+-)
+-
+ cc_library(
+     name = "ord",
+     hdrs = [
+@@ -640,14 +557,6 @@ sh_test(
+     toolchains = ["@rules_python//python:current_py_toolchain"],
+ )
+ 
+-# Make sure the Qt GUI variant keeps building. :openroad is exercised by
+-# downstream rule libraries that pull it as a tool; :openroad-qt has no
+-# such consumer in CI, so a build_test pins its compilability.
+-build_test(
+-    name = "openroad_qt_build_test",
+-    targets = [":openroad-qt"],
+-)
+-
+ # ---------------------------------------------------------------------------
+ # Lint & tidy targets
+ #
+diff --git a/MODULE.bazel b/MODULE.bazel
+index cc208d596d..e434e5ad05 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -111,42 +111,6 @@ bazel_dep(name = "cudd", version = "3.0.0.bcr.2")
+ bazel_dep(name = "eigen", version = "3.4.0.bcr.3")
+ bazel_dep(name = "fmt", version = "11.2.0.bcr.1")
+ 
+-# freetype reaches the build transitively (qt-bazel -> harfbuzz -> freetype).
+-# freetype@2.13.3's BUILD overlay calls the native cc_library rule, which
+-# Bazel 9 removed, so loading the package fails. 2.13.3.bcr.2 keeps the same
+-# 2.13.3 source but its overlay loads cc_library from @rules_cc. This is a
+-# direct bazel_dep rather than a single_version_override so the pin propagates
+-# to downstream consumers via MVS (overrides only apply in the root module).
+-bazel_dep(name = "freetype", version = "2.13.3.bcr.2")
+-
+-# icu is transitive (qt-bazel -> icu). The BCR overlay patches
+-# u_getDataDirectory() to locate icudt*.dat via
+-# rules_cc::cc::runfiles::Runfiles::Rlocation(), but Runfiles::Create()
+-# returns nullptr whenever no runfiles tree is reachable and the overlay
+-# dereferences it unconditionally. A binary that a bazel/install.sh-style
+-# step copies out of bazel-bin loses its .runfiles directory, so the first
+-# locale-aware compare (QCollator, std::locale, ...) anywhere in the process
+-# segfaults -- e.g. QFileDialog listing a directory, or a sortable Qt list/
+-# table. Every icu version currently in the BCR carries the same unchecked
+-# dereference (76.1.bcr.4, 78.2.bcr.2, ...), so a version bump alone would
+-# not help; the patch null-checks Runfiles::Create()'s result and falls
+-# through to the "" default instead of crashing.
+-#
+-# 76.1.bcr.4 keeps the source and BCR patches of 76.1.bcr.3, so the patch
+-# above still applies. It adds the integrity that 76.1.bcr.3 lacks on the
+-# icu_dat http_archive. Without a checksum, the remote downloader in
+-# build:ci cannot serve icu_dat from the cache, so the cache downloads it
+-# from GitHub again on every fetch, and the build fails whenever that
+-# download is slow.
+-single_version_override(
+-    module_name = "icu",
+-    patch_strip = 1,
+-    patches = [
+-        "//bazel/icu-patches:0001-putil-null-check-bazel-runfiles-before-dereference.patch",
+-    ],
+-    version = "76.1.bcr.4",
+-)
+-
+ bazel_dep(name = "git", version = "2.54.0")
+ 
+ # We enable the external_include_paths feature globally (see .bazelrc), which
+@@ -168,6 +132,11 @@ bazel_dep(name = "libdeflate", version = "1.26")
+ bazel_dep(name = "openmp", version = "21.1.5.bcr.2")
+ bazel_dep(name = "or-tools", version = "9.15")
+ 
++# pcre2 reaches the build through swig, which asks for 10.43, whose BUILD
++# overlay calls the native cc_binary rule that Bazel 9 removed. qt-bazel
++# (glib) used to raise it to 10.46-DEV; with Qt gone the pin is direct.
++bazel_dep(name = "pcre2", version = "10.46-DEV")
++
+ # spdlog < 1.16.0.bcr.2's BUILD.bazel calls the native cc_test rule, which
+ # Bazel 9 removed; loading the package fails. 1.16.0.bcr.2+ loads cc_test
+ # from @rules_cc.
+@@ -181,28 +150,6 @@ bazel_dep(name = "tcmalloc", version = "0.0.0-20250927-12f2552")
+ bazel_dep(name = "yaml-cpp", version = "0.9.0")
+ bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
+ 
+-# A from source build of QT that allows it to link into OpenROAD.
+-# Building like any other bazel project. scripts in the docker folder
+-# of this project generate stubs .ifso for things like X11 that will
+-# allow openroad to link, but will search on the system at runtime for
+-# the correct system libs.
+-bazel_dep(name = "qt-bazel")
+-
+-# external_include_paths (see .bazelrc) moves Qt's external-repo include dirs
+-# into compilation_context.external_includes. The moc rule at the older pin did
+-# not gather those, so moc lost Qt's own header search paths and failed under
+-# --config=lint (qtextimagehandler_p.h "Undefined interface", qfilesystemmodel.h
+-# "Parse error at QT7_ONLY"). 541ebf6d teaches the moc rule to also collect
+-# external_includes. 5587ebca adds the qwebp imageformat plugin so save_image
+-# can write .webp (without it the path is rewritten to *.webp.png).
+-# c3319f9e includes <stdlib.h> for free() in qxcbatom.cpp, which libc++ 23
+-# (hermetic-llvm >= 0.8.20) no longer pulls in transitively.
+-git_override(
+-    module_name = "qt-bazel",
+-    commit = "c3319f9e7735c67d47c7dfcc4a135bb91080f1a3",
+-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+-)
+-
+ ## Lock the compiler version and avoid any local compiler.
+ ## Downstream consumers must configure their own C++ toolchain.
+ ##
+@@ -289,57 +236,6 @@ register_toolchains(
+     dev_dependency = True,
+ )
+ 
+-# hermetic-llvm ships a minimal macOS SDK subset (frameworks are opt-in).
+-# Qt (qt-bazel) needs the desktop frameworks; the first six entries are
+-# hermetic-llvm's defaults, which listing any framework replaces.
+-osx = use_extension("@llvm//extensions:osx.bzl", "osx", dev_dependency = True)
+-osx.frameworks(names = [
+-    "CoreFoundation",
+-    "Foundation",
+-    "Kernel",
+-    "OSLog",
+-    "Security",
+-    "SystemConfiguration",
+-    "AppKit",
+-    "ApplicationServices",
+-    "CFNetwork",
+-    "Carbon",
+-    "Cocoa",
+-    "ColorSync",
+-    "CoreData",
+-    "CoreGraphics",
+-    "CoreImage",
+-    "CoreServices",
+-    "CoreText",
+-    "CoreVideo",
+-    "DiskArbitration",
+-    # ATS (inside the ApplicationServices umbrella) has .tbd symlinks into
+-    # the FontServices private framework; without it they dangle and bazel
+-    # rejects the sysroot ("file type is not supported").
+-    "FontServices",
+-    "GSS",
+-    "IOKit",
+-    "IOSurface",
+-    "ImageIO",
+-    "Metal",
+-    # MetalKit's MTKModel.h includes ModelIO/ModelIO.h.
+-    "MetalKit",
+-    "ModelIO",
+-    "OpenGL",
+-    # PrintCore is inside the ApplicationServices umbrella, but must be
+-    # named for the SDK subset to keep usr/include/cups (its ObjC headers
+-    # import <cups/ppd.h>).
+-    "PrintCore",
+-    "QuartzCore",
+-    # AppKit reaches these on macOS: NSImageView.h includes Symbols
+-    # unconditionally; NSText*.h take the non-UIKit branch into the
+-    # UIFoundation private framework; NSSharingService pulls CloudKit.
+-    "CloudKit",
+-    "Symbols",
+-    "UIFoundation",
+-    "UniformTypeIdentifiers",
+-])
+-
+ rules_python_config = use_extension("@rules_python//python/extensions:config.bzl", "config")
+ rules_python_config.explicit_init_py(default = True)
+ 
+diff --git a/bazel/icu-patches/0001-putil-null-check-bazel-runfiles-before-dereference.patch b/bazel/icu-patches/0001-putil-null-check-bazel-runfiles-before-dereference.patch
+deleted file mode 100644
+index f7253499df..0000000000
+--- a/bazel/icu-patches/0001-putil-null-check-bazel-runfiles-before-dereference.patch
++++ /dev/null
+@@ -1,24 +0,0 @@
+---- a/icu4c/source/common/putil.cpp
+-+++ b/icu4c/source/common/putil.cpp
+-@@ -1494,9 +1494,19 @@
+- #endif
+-
+- #if defined(BAZEL_CURRENT_REPOSITORY) && defined(ICU_DATA_DIR_BAZEL)
+-+    // Runfiles::Create() returns nullptr when no runfiles tree is reachable,
+-+    // which is the case for a binary copied out of bazel-bin by an install
+-+    // step (its .runfiles directory is gone and $RUNFILES_DIR/
+-+    // $RUNFILES_MANIFEST_FILE are unset). The unconditional dereference below
+-+    // then segfaults the first time any locale-aware compare (QCollator,
+-+    // std::locale, ...) reaches this function. Fall through to the ""
+-+    // default instead.
+-     std::unique_ptr<Runfiles> runfiles(Runfiles::Create("", BAZEL_CURRENT_REPOSITORY));
+--    std::string dat_path = runfiles->Rlocation(ICU_DATA_DIR_BAZEL);
+--    path = dat_path.c_str();
+-+    std::string dat_path = runfiles ? runfiles->Rlocation(ICU_DATA_DIR_BAZEL)
+-+                                     : std::string();
+-+    if (!dat_path.empty()) {
+-+        path = dat_path.c_str();
+-+    }
+- #endif
+-
+-     if(path==nullptr) {
+diff --git a/bazel/icu-patches/BUILD.bazel b/bazel/icu-patches/BUILD.bazel
+deleted file mode 100644
+index d518110449..0000000000
+--- a/bazel/icu-patches/BUILD.bazel
++++ /dev/null
+@@ -1 +0,0 @@
+-exports_files(glob(["*.patch"]))
+diff --git a/openroad/gui/BUILD b/openroad/gui/BUILD
+index 192f0f867a..d34397f39d 100644
+--- a/openroad/gui/BUILD
++++ b/openroad/gui/BUILD
+@@ -1,13 +1,7 @@
+ # SPDX-License-Identifier: BSD-3-Clause
+ # Copyright (c) 2025, The OpenROAD Authors
+ 
+-# This file only currently supports the gui disabled.  More work
+-# is needed to handle Qt and build a working gui.
+-
+-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+-load("@qt-bazel//:build_defs.bzl", "qt6_library", "qt6_resource_library")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+-load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
+ load("//bazel:tcl_encode_or.bzl", "tcl_encode")
+ load("//bazel:tcl_wrap_cc.bzl", "tcl_wrap_cc")
+ load("//test:regression.bzl", "messages_txt")
+@@ -17,11 +11,9 @@ package(
+     features = ["layering_check"],
+ )
+ 
+-# The gui as a binary with no Qt has it: the Qt-free core, the same gui::
+-# Tcl commands as a Qt build, and the entry points answering that there is
+-# no gui to open.  A Qt build links :gui_qt instead, which carries Qt's own
+-# versions of those, so nothing reachable from :openroad-qt depends on this
+-# target.
++# The Qt-free core: the gui:: Tcl commands and the entry points answering
++# that there is no gui to open. The Bazel build links no Qt; the web viewer
++# (//openroad/web) is its GUI.
+ cc_library(
+     name = "gui",
+     srcs = [
+@@ -47,97 +39,6 @@ cc_library(
+     ],
+ )
+ 
+-# A Qt 'headless' build is added for environments that require GUI features
+-# but do not have an attached display. This requires setting 'qt_gui_platform'
+-# to `headless`, and subsituting the dependency in the top-level BUILD.
+-QT_GUI_PLATFORMS = {
+-    "headless": "_headless",
+-    "native": "",
+-}
+-
+-[
+-    qt6_library(
+-        name = "gui_qt" + suffix,
+-        srcs = glob(
+-            include = [
+-                "src/*.cpp",
+-            ],
+-            # makeGui.cpp answers the entry points for a build with no Qt;
+-            # this target has gui.cpp's versions of them.
+-            exclude = [
+-                "src/makeGui.cpp",
+-            ],
+-        ) + [
+-            ":gui_swig",
+-            ":tcl",
+-        ],
+-        hdrs = [
+-            "include/gui/MakeGui.h",
+-            "include/gui/gui.h",
+-        ],
+-        defines = select({
+-            "@platforms//os:linux": ["STATIC_QPA_PLUGIN_XCB=1"],
+-            "//conditions:default": [],
+-        }),
+-        includes = [
+-            "include",
+-            "src",
+-            "ui",
+-        ],
+-        moc_hdrs = glob(["src/*.h"]),
+-        qt_gui_platform = platform,
+-        uic_srcs = glob(["ui/*.ui"]) if platform == "native" else [],
+-        deps = [
+-            ":qt_resources",
+-            "//:ord",
+-            "//openroad/dbSta",
+-            "//openroad/dbSta:dbNetwork",
+-            "//openroad/odb/src/db",
+-            "//openroad/odb/src/defout",
+-            "//openroad/sta:opensta_lib",
+-            "//openroad/utl",
+-            "//openroad/web:core",
+-            "@abseil-cpp//absl/synchronization",
+-            "@boost.algorithm",
+-            "@boost.geometry",
+-            "@boost.multi_array",
+-            "@spdlog",
+-            "@tcl_lang//:tcl",
+-        ] + ([":uic_lib"] if platform == "headless" else []),
+-    )
+-    for platform, suffix in QT_GUI_PLATFORMS.items()
+-]
+-
+-# This is used to work around the limitation of the `qt6_library` rule which
+-# only supports use of one `qt6_library` rule using `uic_srcs` per package.
+-cc_library(
+-    name = "uic_lib",
+-    hdrs = [
+-        ":ui/ui_findDlg.h",
+-        ":ui/ui_gotoDlg.h",
+-        ":ui/ui_highlightGroupDlg.h",
+-        ":ui/ui_selectedWidget.h",
+-    ],
+-    includes = [
+-        "ui",
+-    ],
+-    deps = [
+-        "@qt-bazel//qt_source:core",
+-        "@qt-bazel//qt_source:widgets",
+-    ],
+-)
+-
+-qt6_resource_library(
+-    name = "qt_resources",
+-    data_srcs = glob([
+-        "resources/**/*.png",
+-    ]),
+-    external_init_name = "resource",
+-    qrc_srcs = [
+-        "resources/resource.qrc",
+-    ],
+-)
+-
+ tcl_wrap_cc(
+     name = "gui_swig",
+     srcs = [
+@@ -177,31 +78,3 @@ messages_txt(
+         "//openroad/gui/test:__pkg__",
+     ],
+ )
+-
+-# Desktop entry for GUI builds. The install prefix is not known at build
+-# time, so the icon path is left as a @OPENROAD_PREFIX@ placeholder that
+-# //bazel:install.sh substitutes at install time.
+-expand_template(
+-    name = "desktop_entry",
+-    out = "openroad.desktop",
+-    substitutions = {
+-        "${OPENROAD_SHARE_GUI_DIR}": "@OPENROAD_PREFIX@/share/openroad/gui",
+-    },
+-    template = "resources/openroad.desktop.in",
+-)
+-
+-# The desktop entry and its icon, laid out at the paths install.sh expects
+-# inside the extracted tar. Pulled into //packaging:tarfile only when
+-# --//:platform=gui is set.
+-pkg_files(
+-    name = "desktop_files",
+-    srcs = [
+-        "resources/icon.png",
+-        ":openroad.desktop",
+-    ],
+-    renames = {
+-        ":openroad.desktop": "share/applications/openroad.desktop",
+-        "resources/icon.png": "share/openroad/gui/icon.png",
+-    },
+-    visibility = ["//packaging:__pkg__"],
+-)
+diff --git a/openroad/gui/test/BUILD b/openroad/gui/test/BUILD
+index 2240f69b07..7cafda6807 100644
+--- a/openroad/gui/test/BUILD
++++ b/openroad/gui/test/BUILD
+@@ -17,15 +17,6 @@ ALL_TESTS = [
+     "select_name_patterns",
+ ]
+ 
+-# Exercise the Qt gui, so they need it built in.
+-QT_TESTS = [
+-    "clocktree_virtual_clock",
+-    "display_controls_parity",
+-    "save_animated_gif_headless",
+-    "save_image_headless",
+-    "select_name_patterns",
+-]
+-
+ PASSFAIL_TESTS = [
+     "clocktree_virtual_clock",
+     "display_controls_parity",
+@@ -60,7 +51,6 @@ filegroup(
+         check_log = False if test_name in PASSFAIL_TESTS else True,
+         check_passfail = True if test_name in PASSFAIL_TESTS else False,
+         data = [":test_resources"],
+-        openroad = "//:openroad-qt" if test_name in QT_TESTS else "//:openroad",
+         visibility = ["//visibility:public"],
+     )
+     for test_name in ALL_TESTS
+diff --git a/packaging/BUILD.bazel b/packaging/BUILD.bazel
+index 7600a6a1c7..3358e0cb4c 100644
+--- a/packaging/BUILD.bazel
++++ b/packaging/BUILD.bazel
+@@ -10,16 +10,7 @@ sh_binary(
+     data = [
+         ":tarfile",
+         "//docs:man_pages",
+-    ] + select({
+-        # Ship the desktop entry + icon only for GUI builds so install.sh
+-        # can register a menu launcher.
+-        "//:platform_gui": ["//openroad/gui:desktop_files"],
+-        "//conditions:default": [],
+-    }),
+-    env = select({
+-        "//:platform_gui": {"OPENROAD_INSTALL_GUI": "1"},
+-        "//conditions:default": {},
+-    }),
++    ],
+     visibility = ["//visibility:public"],
+     deps = ["@bazel_tools//tools/bash/runfiles"],
+ )
+-- 
+2.53.0
+

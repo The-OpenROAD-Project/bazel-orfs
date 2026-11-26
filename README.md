@@ -447,12 +447,6 @@ archive_override(
     strip_prefix = "OpenROAD-<commit>",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/<commit>.tar.gz"],
 )
-bazel_dep(name = "qt-bazel")
-git_override(
-    module_name = "qt-bazel",
-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-    commit = "<the qt-bazel commit bazel-orfs pins>",
-)
 bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
 single_version_override(
     module_name = "sv-elab",

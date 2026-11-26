@@ -337,13 +337,15 @@ archive_override(
         # Not upstreamed; retires at a //:bump onto an OpenROAD that has
         # it, or is dropped if XSTile does not hold the gain.
         "//patches:0242-openroad-gpl-cohesion.patch",
-        # 0243: in GUI mode Qt owns the main loop and nothing services
-        # Tcl's event queue, so `after`, `fileevent` and `socket -server`
-        # callbacks never run; a QTimer drains it on the Qt main thread.
-        # Lets a Tcl server sourced into a GUI session answer. Built by
-        # @openroad//:openroad-qt only. Not upstreamed; retires at a
-        # //:bump onto an OpenROAD whose GUI services the Tcl event loop.
-        "//patches:0243-openroad-gui-tcl-event-pump.patch",
+        # 0251: no Qt in the build. OpenROAD's MODULE.bazel loses its
+        # bazel_dep(qt-bazel), which has no BCR version and resolved only
+        # through a git_override every root had to repeat, with the pins
+        # that exist only for Qt; openroad/gui loses its Qt targets and
+        # the @qt-bazel load, the root package openroad-qt and the
+        # --//:platform=gui branches. The GUI is the web viewer
+        # (gui_<stage>, the odb-debug daemon). Not upstreamed; retires at
+        # a //:bump onto an OpenROAD whose Bazel build makes Qt optional.
+        "//patches:0251-openroad-no-qt.patch",
     ],
     strip_prefix = "OpenROAD-8a66ab1e9c497f70a12b796c7fe875e2098dbad2",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/8a66ab1e9c497f70a12b796c7fe875e2098dbad2.tar.gz"],
@@ -470,19 +472,6 @@ bazel_dep(name = "rules_pycross", version = "0.8.3", dev_dependency = True)
 
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross", dev_dependency = True)
 pycross.configure_environments(python_versions = ["3.13"])
-
-# dev_dependency: this version-less bazel_dep only exists so the root-only
-# git_override below has something to apply to. bazel-orfs builds no Qt
-# (the GUI is the web viewer), but openroad's own bazel_dep(qt-bazel) has
-# no BCR version and resolves only through the root's override.
-# Downstream, the consumer's root override carries it, as README.md and
-# docs/openroad.md require.
-bazel_dep(name = "qt-bazel", dev_dependency = True)
-git_override(
-    module_name = "qt-bazel",
-    commit = "c3319f9e7735c67d47c7dfcc4a135bb91080f1a3",
-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-)
 
 # Hermetic C++ toolchain for building OpenROAD (and yosys, gnumake) from
 # source: the BCR "llvm" module (hermetic-llvm) — the same statically linked,

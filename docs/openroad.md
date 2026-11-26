@@ -54,13 +54,6 @@ archive_override(
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/<commit>.tar.gz"],
 )
 
-bazel_dep(name = "qt-bazel")
-git_override(
-    module_name = "qt-bazel",
-    commit = "<the qt-bazel commit bazel-orfs pins>",
-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-)
-
 # The slang frontend: orfs_flow synthesises with slang, and OpenROAD's syn
 # compiles it. It comes from the BCR; copy this block from bazel-orfs's
 # MODULE.bazel, with the patch it names (`bazelisk run @bazel-orfs//:bump`
@@ -222,12 +215,6 @@ orfs_flow(
 
 Things that can surprise you when building OpenROAD from source:
 
-- **qt-bazel `git_override` must be in your root `MODULE.bazel`**. bzlmod
-  silently ignores `git_override` from non-root modules. If you forget this,
-  you'll get a "module not found" error for qt-bazel. Nothing builds Qt;
-  OpenROAD's own `bazel_dep(qt-bazel)` has no BCR version, so it resolves
-  only through the root's override.
-
 - **First build is slow**. OpenROAD pulls in ~30 boost modules, or-tools,
   tcmalloc, eigen, swig, and more. Expect 30-60+ minutes for a cold build.
   Subsequent builds are incremental.
@@ -259,8 +246,11 @@ These changes in OpenROAD would improve the experience for downstream users:
   A propagating registration (or a documented shared macro) would remove that
   duplication.
 
-- **qt-bazel in BCR** — would eliminate the `git_override` burden; currently
-  every consumer must re-declare it.
+- **Qt optional in the Bazel build** — OpenROAD's `MODULE.bazel` depends on
+  qt-bazel, which has no BCR version and resolves only through a root's
+  `git_override`; bazel-orfs carries patch 0251 to drop it, since the web
+  viewer is its only GUI. A Qt-free default (Qt behind an opt-in) would let
+  that patch go.
 
 - **Make more dependencies `dev_dependency`** — many boost
   modules, `or-tools`, `tcmalloc`, `eigen`, `swig` etc. are pulled into every
@@ -285,7 +275,7 @@ which project it's running in and does the right thing:
 | bazel-orfs git commit | — (is self)  | yes       | yes             |
 | OpenROAD git commit   | yes          | — (is self) | yes (if present) |
 | ORFS git commit       | yes          | —         | —               |
-| qt-bazel git commit   | yes          | —         | yes (if present) |
+| qt-bazel override     | removed      | commit    | removed (if present) |
 | Non-BCR deps injected | —            | —         | yes (on first bump) |
 
 Detection works by checking `module(name = ...)` in `MODULE.bazel`:
