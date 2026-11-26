@@ -2390,13 +2390,50 @@ class TestOpenroadSubmoduleVendoring(unittest.TestCase):
 
     def test_existing_patches_preserved(self):
         self.assertIn(
-            "//patches:openroad-10384-add-openroad-qt.patch",
+            "//patches:openroad-10384-example.patch",
             self.block,
         )
         self.assertIn("patch_strip = 1", self.block)
 
     def test_old_commit_gone(self):
         self.assertNotIn("old_openroad_commit", self.content)
+
+
+class TestQtBazelRemoved(unittest.TestCase):
+    """A consumer's qt-bazel override goes: bazel-orfs's OpenROAD builds no Qt."""
+
+    def test_downstream_override_removed(self):
+        content = apply_bump("downstream.MODULE.bazel")
+        self.assertFalse(bump.has_bazel_dep(content, "qt-bazel"))
+        self.assertIsNone(bump.find_git_override_block(content, "qt-bazel"))
+        self.assertNotIn("old_qt_commit", content)
+        # Everything around it stays.
+        self.assertTrue(bump.has_bazel_dep(content, "openroad"))
+        self.assertIn("orfs_repositories", content)
+
+    def test_remove_leaves_neighbours(self):
+        content = (
+            'bazel_dep(name = "a")\n'
+            "\n"
+            'bazel_dep(name = "qt-bazel")\n'
+            "git_override(\n"
+            '    module_name = "qt-bazel",\n'
+            '    commit = "c",\n'
+            '    remote = "https://example.invalid/qt",\n'
+            ")\n"
+            "\n"
+            'bazel_dep(name = "b")\n'
+        )
+        self.assertEqual(
+            bump.remove_qt_bazel(content),
+            'bazel_dep(name = "a")\n\nbazel_dep(name = "b")\n',
+        )
+
+    def test_openroad_keeps_its_own_qt(self):
+        """OpenROAD's repository builds its Qt GUI; its pin is bumped."""
+        content = apply_bump("openroad.MODULE.bazel")
+        self.assertTrue(bump.has_bazel_dep(content, "qt-bazel"))
+        self.assertNotIn("old_qt_commit", content)
 
 
 class TestOpenroadPreservesAbsentPatches(unittest.TestCase):
@@ -2812,14 +2849,6 @@ archive_override(
     urls = ["https://example.invalid/openroad.tar.gz"],
 )
 
-bazel_dep(name = "qt-bazel")
-git_override(
-    module_name = "qt-bazel",
-    commit = "deadbeef",
-    patches = ["//patches:qt-bazel-xcb-cursor-from-source.patch"],
-    remote = "https://example.invalid/qt",
-)
-
 bazel_dep(name = "sv-elab", version = "2026-10-29")
 single_version_override(
     module_name = "sv-elab",
@@ -2843,7 +2872,6 @@ single_version_override(
         for name in (
             "0001-openroad-example.patch",
             "0002-openroad-openroad-lib-public.patch",
-            "qt-bazel-xcb-cursor-from-source.patch",
             "sv-elab-0001-redefinition-shares-wire.patch",
             "0099-unreferenced.patch",
         ):
@@ -2861,7 +2889,6 @@ single_version_override(
                     "0001-openroad-example.patch",
                     "0002-openroad-openroad-lib-public.patch",
                 ],
-                "qt-bazel": ["qt-bazel-xcb-cursor-from-source.patch"],
                 "sv-elab": ["sv-elab-0001-redefinition-shares-wire.patch"],
             },
         )
@@ -2877,7 +2904,6 @@ single_version_override(
             [
                 "0001-openroad-example.patch",
                 "0002-openroad-openroad-lib-public.patch",
-                "qt-bazel-xcb-cursor-from-source.patch",
                 "sv-elab-0001-redefinition-shares-wire.patch",
             ],
         )
