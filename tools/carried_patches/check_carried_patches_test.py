@@ -246,6 +246,28 @@ class CreatedFileTest(unittest.TestCase):
         self.assertEqual(verdict, ccp.NEEDS_REBASE)
 
 
+class DeletedFileTest(unittest.TestCase):
+    """A patch that deletes a file is checked against that file."""
+
+    DELETE = """\
+--- a/src/old_thing.cc
++++ /dev/null
+@@ -1,2 +0,0 @@
+-int main() {}
+-// tail
+"""
+
+    def test_deleting_a_present_file_is_clean(self):
+        files = {"src/old_thing.cc": "int main() {}\n// tail\n"}
+        verdict, hunks = ccp.classify_patch(self.DELETE, files.get)
+        self.assertEqual(verdict, ccp.CLEAN)
+        self.assertEqual(hunks, [("src/old_thing.cc", ccp.CLEAN)])
+
+    def test_deleting_an_absent_file_needs_rebase(self):
+        verdict, _ = ccp.classify_patch(self.DELETE, lambda path: None)
+        self.assertEqual(verdict, ccp.NEEDS_REBASE)
+
+
 class TestMain(unittest.TestCase):
 
     def _run(self, workspace, *argv):

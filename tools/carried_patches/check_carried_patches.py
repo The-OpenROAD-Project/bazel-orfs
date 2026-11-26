@@ -76,6 +76,9 @@ def parse_patch(text, renames=None):
         if line.startswith("+++ "):
             target = line[4:].strip().split("\t")[0]
             path = target[2:] if target.startswith("b/") else target
+            if path == "/dev/null":
+                # A deleted file: its hunk's pre-image is the whole file.
+                path = source
             if source not in (path, "/dev/null"):
                 renames[path] = source
             continue
@@ -241,7 +244,7 @@ def main(argv=None):
         default=[],
         required=True,
         help="Pristine (unpatched) tree as <group>=<path>, where <group> is "
-        "the dependency MODULE.bazel names (openroad, yosys, qt-bazel...). "
+        "the dependency MODULE.bazel names (openroad, yosys, sv-elab...). "
         "Repeatable. A bare <path> applies to every group.",
     )
     parser.add_argument(
