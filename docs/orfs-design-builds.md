@@ -107,7 +107,7 @@ no such package '@@orfs+//designs/asap7/gcd': BUILD file not found
 
 `gui_<stage>` opens the web viewer through the odb-debug daemon
 (`tools/odb_debug`): the CLI openroad the stage already built, a link with
-a token, reachable over a VPN. No Qt is built.
+a token, reachable over a VPN.
 
 ## How generation works
 

@@ -150,7 +150,7 @@ and missing for the other.
 - `bazelisk clean` and `bazel clean` are blocked.
 - Building with CMake (`cmake`, `ccmake`, OpenROAD's `etc/Build.sh`) is blocked; bazel is the only build path.
 - Running yosys's `equiv_*` passes is blocked, in a command line or a script yosys is given; it is too slow. Check equivalence with kepler-formal LEC (`test/lec`, the `surgery` skill).
-- Running the OpenROAD Qt GUI (`openroad-qt`, `openroad -gui`, `make qt_<stage>`) is blocked; the agent cannot see it. Use the odb-debug MCP server, and extend `tools/odb_debug` when no tool there answers the question. Building `@openroad//:openroad-qt` and the web viewer's `make gui_<stage>` stay allowed.
+- Running or building the OpenROAD Qt GUI (`openroad-qt`, `openroad -gui`, `make qt_<stage>`, `@openroad//:openroad-qt`) is blocked; the agent cannot see it, and bazel-orfs's OpenROAD has no Qt. Use the odb-debug MCP server, and extend `tools/odb_debug` when no tool there answers the question. The web viewer's `make gui_<stage>` stays allowed.
 - Running odb-debug's client or MCP server from a shell (`python3 tools/odb_debug/odbdebug.py`, `tools/odb_debug/mcp_server.py`, or `bazel run` of either) is blocked; ask through the odb-debug MCP tools, whose replies are capped. Starting the daemon (`bazelisk run <stage>_odb_debug`) stays allowed, from any worktree: an absolute `ODB_DEBUG_DIR` naming the session's `tmp/odb-debug` reaches the session's MCP server.
 - Git operations (`checkout`, `switch`, `rebase`, `cherry-pick`, `merge`, `reset`, `pull`) on local `master` or `main` branches are blocked. Use remote-tracking branches or detached HEADs instead.
 - `git push` to `master` or `main` is blocked; push a feature branch and open a pull request instead.

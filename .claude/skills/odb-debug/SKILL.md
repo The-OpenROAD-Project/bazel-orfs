@@ -145,8 +145,7 @@ happily serves a stale ODB. The daemon stays until the machine needs its
 memory: it leaves on its own when `MemAvailable` falls below 10 % of
 `MemTotal`, and is the OOM killer's first pick (`ODB_DEBUG_IDLE_SECS`
 adds an idle exit). Stop one you are done with (the `tcl` tool's
-`exit`). Its `url` is the GUI: the same loaded design in a browser, no
-Qt build needed.
+`exit`). Its `url` is the GUI: the same loaded design in a browser.
 
 ## 3. Ask
 
@@ -179,7 +178,7 @@ keep-out, a short with an obstruction) exists only in
 `detailed_route_debug -pa -pa_markers`, which stops at every candidate
 for a Continue. The `pin_access` tool runs it to the end and returns the
 markers by constraint; `image` draws the area headless. Neither needs a
-Qt build, a display or a click: the web viewer in the flow's own binary
+display or a click: the web viewer in the flow's own binary
 does the pausing, and the client continues. The same holds for any tool
 with a debug renderer — through `tcl`, every pause is continued and its
 log returned.

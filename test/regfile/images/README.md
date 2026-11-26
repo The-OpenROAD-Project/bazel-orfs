@@ -26,12 +26,16 @@ In no picture: `-column_mux_ratio` and `-use_latch`, which predate the
 register-file options, and `-periphery unplaced`, which only
 `generate_ram_netlist` takes.
 
-To redraw them, with a GUI build of OpenROAD on the patches this
-repository carries, from its `src/ram/test` (where `routed.tcl` and the
-PDKs' files are), for each line of `combos.txt`:
+To redraw them, with OpenROAD on the patches this repository carries,
+from its `src/ram/test` (where `routed.tcl` and the PDKs' files are), for
+each line of `combos.txt`:
 
     PDK=<pdk> ARGS="<arguments>" OUT=<abs>/<pdk>_<name>.png \
-      QT_QPA_PLATFORM=offscreen openroad -exit -no_init -no_splash render.tcl
+      openroad -exit -no_init -no_splash render.tcl
+
+`render.tcl` draws with the web viewer's renderer, headless
+(`save_image -web`, what odb-debug's `image` tool uses), so no display
+is needed.
 
 then scale each to at most 2000 pixels wide. A `-wrapper_verilog` file
 name is relative to that directory.

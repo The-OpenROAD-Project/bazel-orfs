@@ -38,8 +38,8 @@ build --workspace_status_command=tools/workspace_status.sh
 # default `system_python` bootstrap emits the executable from
 # python_bootstrap_template.txt — a Python script the launcher runs with
 # whatever `python3` the host has — so every py_binary in the build, including
-# code generators inside third-party deps (e.g. @libxcb's c_client), needs a
-# host interpreter new enough for that bootstrap.  Hosts whose `python3`
+# code generators inside third-party deps, needs a host interpreter new
+# enough for that bootstrap.  Hosts whose `python3`
 # predates 3.7 fail with `module 'sys' has no attribute '_base_executable'`.
 # The `script` bootstrap emits stage1_bootstrap_template.sh instead, which
 # execs the hermetic toolchain interpreter and needs no host python at all.

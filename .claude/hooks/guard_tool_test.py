@@ -71,8 +71,16 @@ CASES = [
     ("command", "cd tmp && openroad-qt", "odb-debug"),
     ("command", "bazelisk run @openroad//:openroad-qt -- -gui", "odb-debug"),
     ("command", "bazelisk run @openroad//:openroad -- -gui x.tcl", "odb-debug"),
-    # Building it, the web viewer odb-debug drives, and the CLI are fine.
-    ("command", "bazelisk build @openroad//:openroad-qt", None),
+    # Building it is refused too: bazel-orfs's OpenROAD has no Qt.
+    ("command", "bazelisk build @openroad//:openroad-qt", "gui_<stage>"),
+    ("command", "bazelisk build -c opt //:openroad-qt", "gui_<stage>"),
+    (
+        "command",
+        "cd tmp/OpenROAD && bazel build //:openroad-qt_unstamped",
+        "gui_<stage>",
+    ),
+    # The web viewer odb-debug drives, and the CLI, are fine.
+    ("command", "bazelisk build @openroad//:openroad", None),
     ("command", "tmp/test/lb/make qt_final", "odb-debug"),
     ("command", "cd tmp/x && ./make qt_6_final.odb", "odb-debug"),
     ("command", "bazelisk run //test:lb_final qt_final", "odb-debug"),

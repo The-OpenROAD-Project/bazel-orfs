@@ -2,7 +2,7 @@
 
 ## Context
 
-A fresh clone of bazel-orfs builds OpenROAD, OpenSTA, Yosys, ABC and Qt
+A fresh clone of bazel-orfs builds OpenROAD, OpenSTA, Yosys and ABC
 from source before the first flow stage runs. The README says 30 to 60
 minutes and that is optimistic on a laptop; the reporter of
 [#869](https://github.com/The-OpenROAD-Project/bazel-orfs/issues/869) saw
@@ -113,7 +113,7 @@ common --remote_upload_local_results=false
 With that in place a fresh clone at a `main` commit finds every tool
 binary and every tested flow stage already built. Bazel 9's default
 `--remote_download_outputs=toplevel` means only the top-level outputs
-are fetched, so the user downloads `openroad-qt`, the ODB and reports of
+are fetched, so the user downloads `openroad`, the ODB and reports of
 the stage they asked for, and nothing else. The README's first command
 becomes a download, not a compile.
 
@@ -202,7 +202,7 @@ Two options, in order of preference:
 Volume is modest either way. Every OpenROAD bump invalidates every tool
 artifact, so the CAS grows by one full toolchain per bump; the design
 stage outputs for gcd, uart and the example are small next to a single
-`openroad-qt`. Any server with size-based GC copes.
+`openroad`. Any server with size-based GC copes.
 
 ## What this is not
 

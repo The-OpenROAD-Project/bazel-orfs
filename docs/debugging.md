@@ -143,7 +143,7 @@ Both are required by bazel-orfs, built with `-c opt` as the flow's own
 binaries are (`fastbuild`, the default, is unoptimized and several times
 slower). `//openroad/sta:opensta` is the OpenSTA binary
 bazel-orfs runs (it lives in the `openroad/sta` submodule, hence `--recursive`).
-The GUI, `gui_<stage>`, is the web viewer and needs no Qt.
+The GUI, `gui_<stage>`, is the web viewer.
 
 That one command tells you where you stand:
 

@@ -6,7 +6,7 @@ place an answer ends up once the [dirty lane](dirty-lane.md) has found
 it.
 
 **Nothing to install.** Bazel downloads, builds and caches every
-dependency: OpenROAD, OpenSTA, Yosys, ABC, GNU Make, Qt, Python, the C++
+dependency: OpenROAD, OpenSTA, Yosys, ABC, GNU Make, Python, the C++
 toolchain and the PDKs. A developer machine or a CI runner needs Bazelisk
 and a standard Linux install, and gets a bit-for-bit reproducible flow. No
 Docker, no `apt install`, no "works on my machine". The RHEL 8 story in
