@@ -41,7 +41,7 @@ archive_override(
     ],
     patch_strip = 1,
     patches = [
-        "//patches:openroad-10384-add-openroad-qt.patch",
+        "//patches:openroad-10384-example.patch",
     ],
     strip_prefix = "OpenROAD-old_openroad_commit",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/old_openroad_commit.tar.gz"],

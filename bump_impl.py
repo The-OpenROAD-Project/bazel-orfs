@@ -1594,7 +1594,6 @@ def update_openroad_archive_override(
 NON_BCR_DEPS = [
     "orfs",
     "openroad",
-    "qt-bazel",
     "sv-elab",
 ]
 
@@ -1617,9 +1616,9 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
 
 # Patches bazel-orfs applies to a shared dependency live here in the
 # consumer's tree.  A separate directory from the consumer's own patches is
-# not cosmetic: the two sets can collide by name (both once carried a
-# qt-bazel-xcb-cursor-from-source.patch, with different contents), and this
-# directory is rewritten wholesale on every bump.
+# not cosmetic: the two sets can collide by name (both once carried a patch
+# of one name with different contents), and this directory is rewritten
+# wholesale on every bump.
 BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"
 
 
@@ -1875,6 +1874,34 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
                 changed.append(module_name)
             content = content[: span[0]] + new_block + content[span[1] :]
     return content, changed
+
+
+QT_BAZEL_REMOVED = (
+    "qt-bazel: removed its bazel_dep and git_override; bazel-orfs's OpenROAD"
+    " builds no Qt, the GUI is the web viewer (gui_<stage>)."
+)
+
+
+def remove_qt_bazel(content):
+    """Remove a root's ``bazel_dep(name = "qt-bazel")`` and its git_override.
+
+    bazel-orfs's OpenROAD no longer depends on qt-bazel, so the override a
+    consumer's root once had to repeat applies to nothing.  Both calls go
+    with their lines; any other override shape for it is left alone.
+    """
+    span = find_git_override_block(content, "qt-bazel")
+    if span:
+        start, end = span
+        if content[end : end + 1] == "\n":
+            end += 1
+        content = content[:start] + content[end:]
+    content = re.sub(
+        r'^bazel_dep\([^)]*name\s*=\s*"qt-bazel"[^)]*\)[ \t]*\n?',
+        "",
+        content,
+        flags=re.MULTILINE,
+    )
+    return re.sub(r"\n{3,}", "\n\n", content)
 
 
 def inject_non_bcr_deps(content, bazel_orfs_dir):
@@ -2296,7 +2323,7 @@ def bump(
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
         updated_modules.append(f"bazel-orfs -> {bazel_orfs_commit[:12]}")
 
-        # Inject non-BCR deps (orfs, openroad, qt-bazel) with commits
+        # Inject non-BCR deps (orfs, openroad, sv-elab) with commits
         # pinned to the same versions bazel-orfs uses
         content = inject_non_bcr_deps(content, bazel_orfs_dir)
         # The patches come from the commit being pinned, not from the
@@ -2395,8 +2422,16 @@ def bump(
             ignore_errors=ignore_errors,
         )
 
-    # --- Update qt-bazel commit ---
-    if has_bazel_dep(content, "qt-bazel"):
+    # --- qt-bazel: gone from bazel-orfs and its consumers ---
+    # bazel-orfs's OpenROAD builds no Qt (the GUI is the web viewer), so a
+    # consumer's root override of qt-bazel, once required, now overrides a
+    # module nothing depends on.  OpenROAD's own repository still builds
+    # its Qt GUI, so there the pin is bumped as before.
+    if project != "openroad" and has_bazel_dep(content, "qt-bazel"):
+        content = remove_qt_bazel(content)
+        print(QT_BAZEL_REMOVED)
+        updated_modules.append("qt-bazel removed")
+    elif has_bazel_dep(content, "qt-bazel"):
         qt_commit = fetch_commit_fn("The-OpenROAD-Project/qt_bazel_prebuilts", "main")
         _expect(
             find_git_override_block(content, "qt-bazel"),
