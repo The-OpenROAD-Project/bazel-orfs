@@ -2,7 +2,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # ORFS #4893: does skipping floorplan or CTS repair_timing move the
 # period at global route by more than a seed change does?
-load(":arms.bzl", "repair_arms", "two_pass_arms")
+load(":arms.bzl", "repair_arms", "retime_arms", "two_pass_arms")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -31,6 +31,35 @@ TWO_PASS_PANEL = [k for k in PANEL if k != "gf180/aes-hybrid"]
 
 [two_pass_arms(k) for k in TWO_PASS_PANEL]
 
+# The retiming study (OpenROAD #12304): the two-pass panel, the designs
+# ORFS draft #4904 retimes, and jpeg, the stock design with the most
+# retiming headroom, on four more platforms. RETIME_FINAL run base and
+# retime through to the end of the flow as well.
+RETIME_FINAL = [
+    "asap7/gcd",
+    "asap7/ibex",
+    "asap7/tinyRocket",
+    "nangate45/tinyRocket",
+    "sky130hd/aes",
+    "sky130hs/jpeg",
+]
+
+RETIME_EXTRA = [
+    "asap7/tinyRocket",
+    "nangate45/tinyRocket",
+    "sky130hd/aes",
+    "asap7/jpeg",
+    "nangate45/jpeg",
+    "sky130hd/jpeg",
+    "gf180/jpeg",
+]
+
+RETIME_PANEL = TWO_PASS_PANEL + RETIME_EXTRA
+
+[repair_arms(k) for k in RETIME_EXTRA]
+
+[retime_arms(k, final = k in RETIME_FINAL) for k in RETIME_PANEL]
+
 py_library(
     name = "two_pass",
     srcs = ["two_pass.py"],
@@ -49,4 +78,28 @@ py_binary(
     args = ["plot"],
     main = "two_pass.py",
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+py_library(
+    name = "retime",
+    srcs = ["retime.py"],
+    imports = ["."],
+    deps = [":two_pass"],
+)
+
+py_test(
+    name = "retime_test",
+    srcs = ["retime_test.py"],
+    deps = [":retime"],
+)
+
+py_binary(
+    name = "retime_plot",
+    srcs = ["retime.py"],
+    args = ["plot"],
+    main = "retime.py",
+    deps = [
+        ":two_pass",
+        "@bazel-orfs-dev-pip//matplotlib",
+    ],
 )

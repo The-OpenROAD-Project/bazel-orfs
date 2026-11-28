@@ -1,0 +1,53 @@
+diff --git a/openroad/ret/src/RetimingGraph.cpp b/openroad/ret/src/RetimingGraph.cpp
+index 74952b563f..3913bd438a 100644
+--- a/openroad/ret/src/RetimingGraph.cpp
++++ b/openroad/ret/src/RetimingGraph.cpp
+@@ -852,6 +852,48 @@ void RetimingGraph::report() const
+                 distinct.size(),
+                 pinned,
+                 fenced_.size());
++  // Study instrumentation (bazel-orfs study/retime-12304): every
++  // register of the block, by the first reason it cannot move.
++  int sequential = 0;
++  for (odb::dbInst* inst : db_->getChip()->getBlock()->getInsts()) {
++    if (inst->getMaster()->isSequential()) {
++      ++sequential;
++    }
++  }
++  int movable = 0, fenced = 0, sdc = 0, held = 0, dont_touch = 0,
++      shared = 0, constant = 0, supply = 0;
++  for (odb::dbInst* reg : distinct) {
++    if (fenced_.contains(reg)) {
++      ++fenced;
++    } else if (sdc_cells_.contains(reg)) {
++      ++sdc;
++    } else if (isHeld(reg)) {
++      ++held;
++    } else if (isDontTouchRegister(sta_, reg)) {
++      ++dont_touch;
++    } else if (readsSharedNet(reg)) {
++      ++shared;
++    } else if (hasConstantData(reg)) {
++      ++constant;
++    } else if (!suppliesFit(reg)) {
++      ++supply;
++    } else {
++      ++movable;
++    }
++  }
++  logger_->report(
++      "RETIME_CENSUS sequential={} outside_graph={} movable={} fenced={} "
++      "sdc={} held={} dont_touch={} shared_net={} constant={} supply={}",
++      sequential,
++      sequential - static_cast<int>(distinct.size()),
++      movable,
++      fenced,
++      sdc,
++      held,
++      dont_touch,
++      shared,
++      constant,
++      supply);
+ }
+ 
+ }  // namespace ret

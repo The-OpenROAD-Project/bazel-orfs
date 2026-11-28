@@ -1,0 +1,36 @@
+diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index deff59de22..ca323cca1e 100644
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -75,6 +75,10 @@ if { $place_ios } {
+ 
+ log_cmd estimate_parasitics
+ 
++if { $::env(PLACE_RETIME) } {
++  log_cmd retime
++}
++
+ if { $::env(CLUSTER_FLOPS) } {
+   log_cmd cluster_flops {*}[env_var_or_empty CLUSTER_FLOPS_ARGS]
+   log_cmd estimate_parasitics
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 3423fee46b..071cb6df28 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -838,6 +838,16 @@ GPL_KEEP_OVERFLOW:
+     Only used when GPL_TIMING_DRIVEN is enabled.
+   stages:
+     - place
++PLACE_RETIME:
++  description: >
++    Retime the design after global placement: the OpenROAD `retime` command
++    moves registers forward across gates on paths that fail timing and places
++    the cells it creates.
++    The final netlist is no longer combinationally equivalent to the
++    synthesis netlist, so set LEC_CHECK to 0 with it.
++  stages:
++    - place
++  default: 0
+ MIN_PLACE_STEP_COEF:
+   description: >
+     Sets the minimum phi coefficient (pcof_min / µ_k Lower Bound) for global

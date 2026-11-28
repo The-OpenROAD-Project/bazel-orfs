@@ -167,6 +167,10 @@ ORFS_PATCHES = [
     # (SETUP_REPAIR_PHASES); test:setup_repair_effort_test. Not
     # upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0250-orfs-setup-repair-effort.patch"),
+    # 0261 (study/retime-12304 only): PLACE_RETIME runs OpenROAD's
+    # retime (patch 0260) in global placement after estimate_parasitics,
+    # the flow/scripts hunk of ORFS draft #4904. Study branch only.
+    Label("//patches:0261-orfs-place-retime.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

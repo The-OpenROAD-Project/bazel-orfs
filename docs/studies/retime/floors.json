@@ -1,0 +1,13 @@
+[
+ {"key": "asap7/gcd", "period": 316.669, "floor": 299.139, "flops": 34, "unit_ps": 1},
+ {"key": "asap7/ibex", "period": 908.236, "floor": 908.236, "flops": 1932, "unit_ps": 1},
+ {"key": "asap7/swerv_wrapper", "period": 1339.55, "floor": 1280.38, "flops": 13897, "unit_ps": 1},
+ {"key": "asap7/mock-alu", "period": 598.341, "floor": null, "flops": 1319, "unit_ps": 1, "note": "every register on a port's net: no loops bound the floor, and retime moves none of them"},
+ {"key": "asap7/ethmac", "period": null, "floor": null, "flops": null, "unit_ps": 1, "note": "floor_retime: STA-0562; several clocks"},
+ {"key": "nangate45/black_parrot", "period": 8.59341, "floor": 3.29079, "flops": 28701, "unit_ps": 1000},
+ {"key": "nangate45/ariane133", "period": 3.25834, "floor": 2.99179, "flops": 20700, "unit_ps": 1000},
+ {"key": "nangate45/swerv_wrapper", "period": 2.27799, "floor": 2.07728, "flops": 11244, "unit_ps": 1000},
+ {"key": "sky130hd/ibex", "period": 8.55114, "floor": 8.55114, "flops": 1932, "unit_ps": 1000},
+ {"key": "sky130hd/riscv32i", "period": 6.12941, "floor": 5.93792, "flops": 1056, "unit_ps": 1000},
+ {"key": "sky130hs/jpeg", "period": 3.68409, "floor": 2.2858, "flops": 4478, "unit_ps": 1000}
+]

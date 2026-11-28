@@ -1,0 +1,42 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+
+# The positive control of the retiming study (study/retime-12304): a
+# multiplier whose pipeline registers all sit in front of it, so retime
+# has a known amount to win. base and retime differ only in PLACE_RETIME.
+RETIME = {
+    "LEC_CHECK": "0",
+    "PLACE_RETIME": "1",
+}
+
+INV = {"VERILOG_TOP_PARAMS": "INVERT_IN 1"}
+
+[orfs_flow(
+    name = "pipe_mult",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HDL_FRONTEND": "slang",
+    } | extra,
+    last_stage = "final",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    top = "pipe_mult",
+    variant = variant,
+    verilog_files = ["pipe_mult.sv"],
+) for variant, extra in [
+    ("base", {}),
+    ("retime", RETIME),
+    # an inverter between each port and its first register: no register
+    # on a port's net, which retime never moves
+    ("inv_base", INV),
+    ("inv_retime", INV | RETIME),
+    # a narrow multiplier: few critical paths in parallel
+    ("w4_base", {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"}),
+    ("w4_retime", {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"} | RETIME),
+    ("w8_base", {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"}),
+    ("w8_retime", {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"} | RETIME),
+    ("w16_base", {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"}),
+    ("w16_retime", {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"} | RETIME),
+]]

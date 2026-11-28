@@ -147,3 +147,64 @@ def two_pass_arms(key):
             verilog_files = _orfs([f for f in d["verilog_files"] if "$(" not in f]),
             yosys_frontend_reason = None if frontend == "slang" else "measured as ORFS runs %s" % key,
         )
+
+RETIME = {
+    # retime moves registers; the netlist is no longer combinationally
+    # equivalent to synthesis's (as ORFS draft #4904 sets it)
+    "LEC_CHECK": "0",
+    "PLACE_RETIME": "1",
+}
+
+def retime_arms(key, final = False):
+    """The retiming study's arms, from the base arm's floorplan.
+
+    <top>_<v>_rt_grt: PLACE_RETIME=1 (OpenROAD #12304's retime in global
+    placement, ORFS draft #4904's hook). <top>_<v>_rt_seed2_grt: the same
+    with GPL_RANDOM_SEED=2. With final, <top>_<v>_fin_base_final and
+    <top>_<v>_fin_rt_final run base and rt through to the end of the
+    flow.
+
+    Args:
+        key: the DESIGNS key, "<platform>/<design>".
+        final: also run base and rt through the final stage.
+    """
+    d = DESIGNS[key]
+    v = key.replace("/", "_").replace("-", "_")
+    base = d["name"] + "_" + v + "_base"
+    arguments = dict(d["arguments"])
+    if arguments.get("SYNTH_HIERARCHICAL") == "1" and "SYNTH_NUM_PARTITIONS" not in arguments:
+        arguments["SYNTH_NUM_PARTITIONS"] = "32"
+    frontend = arguments.get("SYNTH_HDL_FRONTEND", "")
+    arguments["SYNTH_HDL_FRONTEND"] = frontend
+    if "VERILOG_INCLUDE_DIRS" in arguments:
+        arguments["VERILOG_INCLUDE_DIRS"] = " ".join([
+            "external/+orfs_repositories+orfs/" + x.strip()
+            for x in arguments["VERILOG_INCLUDE_DIRS"].replace("\t", " ").split(" ")
+            if x.strip()
+        ])
+    if "PLACE_RETIME" in arguments:
+        fail(key + ": sets PLACE_RETIME, which the retime arms own")
+    arguments, user_arguments = split_user_variables(arguments)
+    sources, user_sources = split_user_variables(_sources_for(key))
+    arms = {
+        "rt": (RETIME, "grt"),
+        "rt_seed2": (RETIME | {"GPL_RANDOM_SEED": "2"}, "grt"),
+    }
+    if final:
+        arms["fin_base"] = ({}, "final")
+        arms["fin_rt"] = (RETIME, "final")
+    for arm, (extra, last) in arms.items():
+        orfs_flow(
+            name = d["name"],
+            arguments = arguments | extra,
+            last_stage = last,
+            pdk = "@orfs//flow:" + d["platform"],
+            previous_stage = {"place": ":" + base + "_floorplan"},
+            sources = sources,
+            user_arguments = user_arguments,
+            user_sources = user_sources,
+            tags = ["manual"],
+            variant = v + "_" + arm,
+            verilog_files = _orfs([f for f in d["verilog_files"] if "$(" not in f]),
+            yosys_frontend_reason = None if frontend == "slang" else "measured as ORFS runs %s" % key,
+        )

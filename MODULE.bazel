@@ -344,6 +344,14 @@ archive_override(
         # @openroad//:openroad-qt only. Not upstreamed; retires at a
         # //:bump onto an OpenROAD whose GUI services the Tcl event loop.
         "//patches:0243-openroad-gui-tcl-event-pump.patch",
+        # 0260 (study/retime-12304 only): OpenROAD draft #12304 at
+        # e362a64e, the ret module and its retime command, without its
+        # tests. Study branch only.
+        "//patches:0260-openroad-ret-retime-pr12304.patch",
+        # 0262 (study/retime-12304 only): instrumentation, one
+        # RETIME_CENSUS line counting the block's registers by the first
+        # reason retime cannot move them. Study branch only.
+        "//patches:0262-openroad-ret-census.patch",
     ],
     strip_prefix = "OpenROAD-8a66ab1e9c497f70a12b796c7fe875e2098dbad2",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/8a66ab1e9c497f70a12b796c7fe875e2098dbad2.tar.gz"],
