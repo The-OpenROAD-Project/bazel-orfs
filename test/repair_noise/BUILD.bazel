@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # ORFS #4893: does skipping floorplan or CTS repair_timing move the
 # period at global route by more than a seed change does?
@@ -41,4 +41,12 @@ py_test(
     name = "two_pass_test",
     srcs = ["two_pass_test.py"],
     deps = [":two_pass"],
+)
+
+py_binary(
+    name = "two_pass_plot",
+    srcs = ["two_pass.py"],
+    args = ["plot"],
+    main = "two_pass.py",
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
 )

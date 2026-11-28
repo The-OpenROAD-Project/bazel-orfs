@@ -45,7 +45,10 @@ COMPARED = ["seed2", "tp_ctl", "tp_clk", "tp_vcts"]
 # (gpl -timing_driven_nets_percentage)
 TOP_SHARE = 0.10
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+# under `bazelisk run` the script sits in runfiles; write to the checkout
+ROOT = os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.path.dirname(
+    os.path.dirname(HERE)
+)
 RESULTS = os.path.join(ROOT, "docs", "studies", "two-pass-placement", "results.json")
 # The noise band of ORFS#4893: per-draw sigma of grt WNS from the QoR
 # dashboard's master history, in the platform's time unit.
@@ -496,7 +499,127 @@ def report():
     sys.stdout.write(render(json.load(open(RESULTS))))
 
 
+LABELS = {
+    "seed2": "seed change\n(the noise reference)",
+    "tp_ctl": "pass 2, nothing fed back\n(the control)",
+    "tp_clk": "pass 2, pass-1 clock latencies\nin global placement",
+    "tp_vcts": "one pass, global placement's\nvirtual CTS",
+}
+PLOT = os.path.join(os.path.dirname(RESULTS), "period_z.png")
+
+
+def plot():
+    """period_z.png: each design's period change at grt, in noise σ, per arm."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    if not os.path.exists(RESULTS):
+        raise SystemExit("run the campaign first, then `two_pass.py collect`")
+    results = json.load(open(RESULTS))
+    v = verdicts(results)
+    ink, ink2, series, band = "#191919", "#666666", "#257de0", "#e8e8e8"
+    fig, ax = plt.subplots(figsize=(9, 4.6), dpi=150)
+    fig.patch.set_facecolor("white")
+    ax.axvspan(-2, 2, color=band, zorder=0, lw=0)
+    ax.axvline(0, color="#bdbdbd", lw=1, zorder=1)
+    ax.text(
+        0,
+        len(COMPARED) - 0.35,
+        "within the noise floor  (|z| < 2)",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        color=ink2,
+    )
+    for i, a in enumerate(reversed(COMPARED)):
+        y = i
+        x = v[a]
+        if x is None:
+            continue
+        zs = [d["z"] for d in x["per_design"].values()]
+        jitter = [((k * 37) % 9 - 4) * 0.035 for k in range(len(zs))]
+        ax.scatter(
+            zs,
+            [y + j for j in jitter],
+            s=46,
+            color=series,
+            alpha=0.75,
+            edgecolors="white",
+            linewidths=1.5,
+            zorder=3,
+        )
+        ax.scatter(
+            [x["Z"]],
+            [y],
+            marker="D",
+            s=90,
+            color=ink,
+            edgecolors="white",
+            linewidths=2,
+            zorder=4,
+        )
+        ax.annotate(
+            "Z = %+.2f" % x["Z"],
+            (x["Z"], y),
+            xytext=(0, 13),
+            textcoords="offset points",
+            ha="center",
+            fontsize=9,
+            color=ink,
+        )
+        failed = [
+            k
+            for k, r in ((r["key"], r) for r in results)
+            if a in (r.get("failed") or {})
+        ]
+        if failed:
+            ax.text(
+                3.6,
+                y,
+                "%s: failed in CTS\n(hold repair)" % ", ".join(failed),
+                ha="right",
+                va="center",
+                fontsize=8,
+                color=ink2,
+            )
+    ax.set_yticks(range(len(COMPARED)))
+    ax.set_yticklabels([LABELS[a] for a in reversed(COMPARED)], fontsize=9, color=ink)
+    ax.set_xlim(-3.6, 3.6)
+    ax.set_ylim(-0.6, len(COMPARED) - 0.1)
+    ax.set_xlabel(
+        "period change at global route against base, in noise σ"
+        "   (left: faster, right: slower)",
+        fontsize=9,
+        color=ink2,
+    )
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color("#bdbdbd")
+    ax.tick_params(axis="x", colors=ink2, labelsize=8)
+    ax.tick_params(axis="y", length=0)
+    ax.set_title(
+        "Feeding pass 1's timing back moves the period no more than a seed change",
+        fontsize=11,
+        color=ink,
+        loc="left",
+        pad=12,
+    )
+    fig.text(
+        0.01,
+        0.01,
+        "Dots: the 13 ORFS#4893 designs, one run each.  Diamond: Z = Σz/√n."
+        "  σ: QoR dashboard history ×%.2f (seed-calibrated)." % v["sigma_scale"],
+        fontsize=7.5,
+        color=ink2,
+    )
+    fig.tight_layout(rect=(0, 0.03, 1, 1))
+    fig.savefig(PLOT, facecolor="white")
+    print("wrote " + os.path.relpath(PLOT, ROOT))
+
+
 if __name__ == "__main__":
-    {"collect": collect, "report": report}[
+    {"collect": collect, "report": report, "plot": plot}[
         sys.argv[1] if len(sys.argv) > 1 else "report"
     ]()
