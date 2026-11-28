@@ -187,6 +187,21 @@ class TestInactivityClockStart(unittest.TestCase):
         )
         self.assertIsNone(up.waiting_since_for_pr(pr, "alice"))
 
+    def test_empty_approval_is_not_feedback_to_answer(self):
+        pr = _pr(
+            commits=[("2026-11-27T11:00:00Z", "gpl: inline the GCell accessors")],
+            reviews=[
+                {
+                    "author": {"login": "bob"},
+                    "state": "APPROVED",
+                    "submittedAt": "2026-11-27T21:28:00Z",
+                    "body": "",
+                }
+            ],
+        )
+        self.assertEqual(up.author_action_reasons(pr, "alice"), ())
+        self.assertIsNotNone(up.waiting_since_for_pr(pr, "alice"))
+
     def test_substantive_fix_after_human_review_starts_clock_and_ignores_later_ping(
         self,
     ):

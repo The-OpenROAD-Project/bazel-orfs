@@ -265,7 +265,9 @@ def _timeline_waiting_state(
             if body and not is_command_comment(body):
                 author_replies.append(ts)
         elif rev_author and not is_bot(rev_author):
-            if state != "COMMENTED" or body:
+            # An approval without a body asks nothing of the author; the PR
+            # then waits on the merge, not on a reply.
+            if body or state == "CHANGES_REQUESTED":
                 human_events.append((ts, rev_author))
 
     for comment in pr.get("comments", {}).get("nodes") or []:
