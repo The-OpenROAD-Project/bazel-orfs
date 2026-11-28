@@ -1,0 +1,44 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# ORFS #4893: does skipping floorplan or CTS repair_timing move the
+# period at global route by more than a seed change does?
+load(":arms.bzl", "repair_arms", "two_pass_arms")
+
+package(default_visibility = ["//visibility:private"])
+
+PANEL = [
+    "asap7/gcd",
+    "asap7/ibex",
+    "asap7/ethmac",
+    "asap7/swerv_wrapper",
+    "nangate45/black_parrot",
+    "nangate45/ariane133",
+    "nangate45/swerv_wrapper",
+    "sky130hd/microwatt",
+    "sky130hd/ibex",
+    "sky130hd/riscv32i",
+    "sky130hs/jpeg",
+    "gf180/ibex",
+    "gf180/aes-hybrid",
+    "asap7/mock-alu",
+]
+
+[repair_arms(k) for k in PANEL]
+
+# The two-pass study: pass 1 is the base arm above, pass 2 starts from
+# its floorplan with what pass 1's grt measured fed back.
+TWO_PASS_PANEL = [k for k in PANEL if k != "gf180/aes-hybrid"]
+
+[two_pass_arms(k) for k in TWO_PASS_PANEL]
+
+py_library(
+    name = "two_pass",
+    srcs = ["two_pass.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "two_pass_test",
+    srcs = ["two_pass_test.py"],
+    deps = [":two_pass"],
+)
