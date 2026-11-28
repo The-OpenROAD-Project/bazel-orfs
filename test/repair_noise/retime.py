@@ -272,7 +272,9 @@ def collect_control():
             m = _metrics(rep[0] if rep else None)
             arm = {}
             if m:
-                arm["period_ps"] = CONTROL_PERIOD_PS - m["globalroute__timing__setup__ws"]
+                arm["period_ps"] = (
+                    CONTROL_PERIOD_PS - m["globalroute__timing__setup__ws"]
+                )
                 arm["area_um2"] = m.get("globalroute__design__instance__area__stdcell")
             gp = [f for f in files if f.endswith("/3_3_place_gp.log")]
             if a == "retime" and gp:
@@ -287,9 +289,7 @@ def collect():
     if os.path.exists(NOISE):
         for n in json.load(open(NOISE)):
             noise["%s/%s" % (n["platform"], n["design"])] = n
-    labels = _bazel(
-        ["query", "attr(name, '_base_grt$', //test/repair_noise:all)"]
-    )
+    labels = _bazel(["query", "attr(name, '_base_grt$', //test/repair_noise:all)"])
     results = []
     for key in PANEL:
         v = variant(key)
@@ -327,7 +327,9 @@ def collect():
                     arm["period_ps"] = design_period_ps(m)
                     arm["area"] = m.get("globalroute__design__instance__area__stdcell")
                     arm["hold_ws"] = m.get("globalroute__timing__hold__ws")
-                    arm["cells"] = m.get("globalroute__design__instance__count__stdcell")
+                    arm["cells"] = m.get(
+                        "globalroute__design__instance__count__stdcell"
+                    )
             arm["gpl_s"] = elapsed_s(logs.get("3_3_place_gp.log"))
             rt = parse_retime_log(logs.get("3_3_place_gp.log"))
             if rt is not None:
@@ -364,7 +366,9 @@ def _load():
     if not os.path.exists(RESULTS):
         raise SystemExit("run the campaign, then `retime.py collect`")
     data = json.load(open(RESULTS))
-    floors = {f["key"]: f for f in json.load(open(FLOORS))} if os.path.exists(FLOORS) else {}
+    floors = (
+        {f["key"]: f for f in json.load(open(FLOORS))} if os.path.exists(FLOORS) else {}
+    )
     return data, floors
 
 
@@ -448,7 +452,9 @@ def render(data, floors):
             L.append("- %s, %s failed: `%s`" % (key, a, err))
 
     L.append("\n### To the end of the flow\n")
-    L.append("| Design | Base grt (ps) | rt Δ at grt | Base final (ps) | rt Δ at final |")
+    L.append(
+        "| Design | Base grt (ps) | rt Δ at grt | Base final (ps) | rt Δ at final |"
+    )
     L.append("|---|---:|---:|---:|---:|")
     for key in FINAL:
         r = byk.get(key) or {"arms": {}}
@@ -471,14 +477,37 @@ def render(data, floors):
     L.append(
         "From the RETIME_CENSUS line (study instrumentation, patch 0262) of each rt arm:"
         " every register of the block, by the first reason retime cannot move it."
-        " Outside the graph: registers retime does not model as movable (asynchronous"
-        " set or reset, latches, negative edge, scan, memories and macros).\n"
+        " async/scan: retime's isDontTouchRegister, a live asynchronous set or reset,"
+        " a scan cell or an open input. sdc: named in an SDC exception (retime's"
+        " `-move_sdc_registers` releases those in a path delay or path group; ORFS"
+        " draft #4904 does not pass it). Outside the graph: not on any register edge.\n"
     )
-    cols = ["sequential", "outside_graph", "movable", "fenced", "sdc", "dont_touch", "shared_net", "constant"]
-    L.append("| Design | " + " | ".join(cols) + " |")
+    cols = [
+        "sequential",
+        "outside_graph",
+        "movable",
+        "fenced",
+        "sdc",
+        "dont_touch",
+        "shared_net",
+        "constant",
+    ]
+    heads = [
+        "Registers",
+        "Outside graph",
+        "Movable",
+        "Fenced",
+        "SDC",
+        "Async/scan",
+        "Shared net",
+        "Constant",
+    ]
+    L.append("| Design | " + " | ".join(heads) + " |")
     L.append("|---|" + "---:|" * len(cols))
     for key in PANEL:
-        c = (((byk.get(key) or {}).get("arms", {}).get("rt") or {}).get("retime") or {}).get("census")
+        c = (
+            ((byk.get(key) or {}).get("arms", {}).get("rt") or {}).get("retime") or {}
+        ).get("census")
         if not c:
             continue
         L.append("| %s | %s |" % (key, " | ".join(_f(c.get(k)) for k in cols)))
@@ -490,7 +519,10 @@ def render(data, floors):
         " clock, asap7. Ideal retiming spreads the multiplier over %d cycles.\n"
         % (CONTROL_STAGES, CONTROL_PERIOD_PS, CONTROL_STAGES + 1)
     )
-    L.append("| W | Base period at grt (ps) | rt period at grt (ps) | Base / %d | Slides | Rounds |" % (CONTROL_STAGES + 1))
+    L.append(
+        "| W | Base period at grt (ps) | rt period at grt (ps) | Base / %d | Slides | Rounds |"
+        % (CONTROL_STAGES + 1)
+    )
     L.append("|---:|---:|---:|---:|---:|---:|")
     for row in data.get("control", []):
         b = row.get("base", {}).get("period_ps")
@@ -534,6 +566,7 @@ def plot():
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    import matplotlib.ticker
 
     data, floors = _load()
     results = data["designs"]
@@ -559,29 +592,72 @@ def plot():
         zs = [d["z"] for d in x["per_design"].values()]
         allz += zs + [x["Z"]]
         jit = [((k * 37) % 9 - 4) * 0.035 for k in range(len(zs))]
-        ax.scatter(zs, [i + j for j in jit], s=46, color=S1, alpha=0.75,
-                   edgecolors="white", linewidths=1.5, zorder=3)
-        ax.scatter([x["Z"]], [i], marker="D", s=90, color=INK,
-                   edgecolors="white", linewidths=2, zorder=4)
-        ax.annotate("Z = %+.2f" % x["Z"], (x["Z"], i), xytext=(0, 13),
-                    textcoords="offset points", ha="center", fontsize=9, color=INK)
+        ax.scatter(
+            zs,
+            [i + j for j in jit],
+            s=46,
+            color=S1,
+            alpha=0.75,
+            edgecolors="white",
+            linewidths=1.5,
+            zorder=3,
+        )
+        ax.scatter(
+            [x["Z"]],
+            [i],
+            marker="D",
+            s=90,
+            color=INK,
+            edgecolors="white",
+            linewidths=2,
+            zorder=4,
+        )
+        ax.annotate(
+            "Z = %+.2f" % x["Z"],
+            (x["Z"], i),
+            xytext=(0, 13),
+            textcoords="offset points",
+            ha="center",
+            fontsize=9,
+            color=INK,
+        )
     lim = max(3.6, max(abs(z) for z in allz) + 0.6)
     ax.set_xlim(-lim, lim)
     ax.set_yticks(range(len(names)))
     ax.set_yticklabels([labels[c] for c in reversed(names)], fontsize=9, color=INK)
     ax.set_ylim(-0.6, len(names) - 0.1)
-    ax.text(0, len(names) - 0.35, "within the noise floor  (|z| < 2)", ha="center",
-            va="bottom", fontsize=9, color=INK2)
-    ax.set_xlabel("period change at global route, in noise σ   (left: faster, right: slower)",
-                  fontsize=9, color=INK2)
+    ax.text(
+        0,
+        len(names) - 0.35,
+        "within the noise floor  (|z| < 2)",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        color=INK2,
+    )
+    ax.set_xlabel(
+        "period change at global route, in noise σ   (left: faster, right: slower)",
+        fontsize=9,
+        color=INK2,
+    )
     _style(ax)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
-    ax.set_title("retime against the placement-seed noise floor, ORFS designs",
-                 fontsize=11, color=INK, loc="left", pad=12)
-    fig.text(0.01, 0.01, "Dots: one design, one run each.  Diamond: Z = Σz/√n.  "
-             "σ: QoR dashboard master history ×%.2f (seed-calibrated)." % v["sigma_scale"],
-             fontsize=7.5, color=INK2)
+    ax.set_title(
+        "retime against the placement-seed noise floor, ORFS designs",
+        fontsize=11,
+        color=INK,
+        loc="left",
+        pad=12,
+    )
+    fig.text(
+        0.01,
+        0.01,
+        "Dots: one design, one run each.  Diamond: Z = Σz/√n.  "
+        "σ: QoR dashboard master history ×%.2f (seed-calibrated)." % v["sigma_scale"],
+        fontsize=7.5,
+        color=INK2,
+    )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     written.append(_save(fig, "period_z.png"))
 
@@ -595,12 +671,37 @@ def plot():
     for k in keys:
         pd = ((v.get("rt") or {}).get("per_design") or {}).get(k)
         won.append(-pd["pct"] if pd else None)
-    ax.barh([i + 0.2 for i in y], hr, height=0.36, color=S1, label="most any retiming could win (floor_retime)")
-    ax.barh([i - 0.2 for i in y], [w if w is not None else 0 for w in won], height=0.36,
-            color=S2, label="what retime won at grt (rt against base)")
-    for i, w in enumerate(won):
-        if w is None:
-            ax.text(0.3, i - 0.2, "not measured / refused", va="center", fontsize=7.5, color=INK2)
+    ax.barh(
+        [i + 0.2 for i in y],
+        hr,
+        height=0.36,
+        color=S1,
+        label="most any retiming could win (floor_retime)",
+    )
+    ax.barh(
+        [i - 0.2 for i in y],
+        [w if w is not None else 0 for w in won],
+        height=0.36,
+        color=S2,
+        label="what retime won at grt (rt against base)",
+    )
+    for i, (h, w) in enumerate(zip(hr, won)):
+        ax.text(
+            max(h, 0) + 0.6,
+            i + 0.2,
+            "%.0f%%" % h,
+            va="center",
+            fontsize=7.5,
+            color=INK2,
+        )
+        ax.text(
+            max(w or 0, 0) + 0.6,
+            i - 0.2,
+            "not measured" if w is None else ("0%" if abs(w) < 0.05 else "%+.1f%%" % w),
+            va="center",
+            fontsize=7.5,
+            color=INK2,
+        )
     ax.axvline(0, color=GRID, lw=1)
     ax.set_yticks(y)
     ax.set_yticklabels(keys, fontsize=8.5, color=INK)
@@ -608,8 +709,13 @@ def plot():
     _style(ax)
     ax.tick_params(axis="y", length=0)
     ax.legend(frameon=False, fontsize=8, loc="lower right")
-    ax.set_title("Retiming headroom against the gain retime delivers", fontsize=11,
-                 color=INK, loc="left", pad=10)
+    ax.set_title(
+        "Retiming headroom against the gain retime delivers",
+        fontsize=11,
+        color=INK,
+        loc="left",
+        pad=10,
+    )
     fig.tight_layout()
     written.append(_save(fig, "headroom.png"))
 
@@ -621,12 +727,38 @@ def plot():
         b = [r["base"]["period_ps"] for r in ctl]
         rt = [r.get("retime", {}).get("period_ps") for r in ctl]
         ideal = [x / (CONTROL_STAGES + 1) for x in b]
-        ax.plot(w, b, color=S1, lw=2, marker="o", ms=7, mec="white", mew=1.5, label="base")
-        ax.plot(w, rt, color=S2, lw=2, marker="o", ms=7, mec="white", mew=1.5, label="retime")
-        ax.plot(w, ideal, color=INK2, lw=1.5, ls="--", label="base / %d (ideal retiming)" % (CONTROL_STAGES + 1))
+        ax.plot(
+            w, b, color=S1, lw=2, marker="o", ms=7, mec="white", mew=1.5, label="base"
+        )
+        ax.plot(
+            w,
+            rt,
+            color=S2,
+            lw=2,
+            marker="o",
+            ms=7,
+            mec="white",
+            mew=1.5,
+            label="retime",
+        )
+        ax.plot(
+            w,
+            ideal,
+            color=INK2,
+            lw=1.5,
+            ls="--",
+            label="base / %d (ideal retiming)" % (CONTROL_STAGES + 1),
+        )
         ax.axhline(CONTROL_PERIOD_PS, color=GRID, lw=1)
-        ax.text(w[0], CONTROL_PERIOD_PS, " SDC clock %d ps" % CONTROL_PERIOD_PS, va="bottom",
-                fontsize=8, color=INK2)
+        ax.text(
+            w[-1],
+            CONTROL_PERIOD_PS,
+            "SDC clock %d ps " % CONTROL_PERIOD_PS,
+            va="bottom",
+            ha="right",
+            fontsize=8,
+            color=INK2,
+        )
         ax.set_xscale("log", base=2)
         ax.set_xticks(w)
         ax.set_xticklabels([str(x) for x in w])
@@ -635,8 +767,14 @@ def plot():
         ax.set_ylim(0, max(b) * 1.1)
         _style(ax)
         ax.legend(frameon=False, fontsize=8, loc="upper left")
-        ax.set_title("Positive control: %d empty stages in front of a multiplier" % CONTROL_STAGES,
-                     fontsize=11, color=INK, loc="left", pad=10)
+        ax.set_title(
+            "Positive control: %d empty stages in front of a multiplier"
+            % CONTROL_STAGES,
+            fontsize=11,
+            color=INK,
+            loc="left",
+            pad=10,
+        )
         fig.tight_layout()
         written.append(_save(fig, "control.png"))
 
@@ -652,10 +790,25 @@ def plot():
             continue
         u = unit_ps(key)
         gain = [100 * (x["wns"] - rounds[0]["wns"]) * u / per for x in rounds]
-        ax.plot([x["round"] for x in rounds], gain, color=S1, lw=1.5, alpha=0.7,
-                marker="o", ms=4)
-        ax.annotate(key, (rounds[-1]["round"], gain[-1]), xytext=(4, 0),
-                    textcoords="offset points", fontsize=7, color=INK2, va="center")
+        ax.plot(
+            [x["round"] for x in rounds],
+            gain,
+            color=S1,
+            lw=1.5,
+            alpha=0.7,
+            marker="o",
+            ms=4,
+        )
+        if gain[-1] > 1.0:
+            ax.annotate(
+                key,
+                (rounds[-1]["round"], gain[-1]),
+                xytext=(4, 0),
+                textcoords="offset points",
+                fontsize=7,
+                color=INK2,
+                va="center",
+            )
         any_line = True
     for row in data.get("control", []):
         rounds = (((row.get("retime") or {}).get("retime")) or {}).get("rounds") or []
@@ -664,17 +817,52 @@ def plot():
             continue
         gain = [100 * (x["wns"] - rounds[0]["wns"]) / b for x in rounds]
         ax.plot([x["round"] for x in rounds], gain, color=S2, lw=1.5, marker="o", ms=4)
-        ax.annotate("control W=%d" % row["width"], (rounds[-1]["round"], gain[-1]),
-                    xytext=(4, 0), textcoords="offset points", fontsize=7, color=INK2,
-                    va="center")
+        if gain[-1] > 1.0:
+            ax.annotate(
+                "control W=%d" % row["width"],
+                (rounds[-1]["round"], gain[-1]),
+                xytext=(4, 0),
+                textcoords="offset points",
+                fontsize=7,
+                color=INK2,
+                va="center",
+            )
         any_line = True
     if any_line:
+        from matplotlib.lines import Line2D
+
         ax.axhline(0, color=GRID, lw=1)
+        ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+        ax.legend(
+            handles=[
+                Line2D([], [], color=S1, lw=1.5, marker="o", ms=4, label="ORFS design"),
+                Line2D(
+                    [], [], color=S2, lw=1.5, marker="o", ms=4, label="positive control"
+                ),
+            ],
+            frameon=False,
+            fontsize=8,
+            loc="upper right",
+        )
+        ax.text(
+            0.99,
+            0.78,
+            "unlabelled lines: gain under 1% of the period",
+            transform=ax.transAxes,
+            ha="right",
+            fontsize=7.5,
+            color=INK2,
+        )
         ax.set_xlabel("retime round (0: before)", fontsize=9, color=INK2)
         ax.set_ylabel("WNS gain, % of the period", fontsize=9, color=INK2)
         _style(ax)
-        ax.set_title("What each retime round gained, as retime measures it", fontsize=11,
-                     color=INK, loc="left", pad=10)
+        ax.set_title(
+            "What each retime round gained, as retime measures it",
+            fontsize=11,
+            color=INK,
+            loc="left",
+            pad=10,
+        )
         fig.tight_layout()
         written.append(_save(fig, "rounds.png"))
     plt.close("all")

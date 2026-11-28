@@ -31,12 +31,33 @@ INV = {"VERILOG_TOP_PARAMS": "INVERT_IN 1"}
     # an inverter between each port and its first register: no register
     # on a port's net, which retime never moves
     ("inv_base", INV),
-    ("inv_retime", INV | RETIME),
+    (
+        "inv_retime",
+        INV | RETIME,
+    ),
     # a narrow multiplier: few critical paths in parallel
-    ("w4_base", {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"}),
-    ("w4_retime", {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"} | RETIME),
-    ("w8_base", {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"}),
-    ("w8_retime", {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"} | RETIME),
-    ("w16_base", {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"}),
-    ("w16_retime", {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"} | RETIME),
+    (
+        "w4_base",
+        {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"},
+    ),
+    (
+        "w4_retime",
+        {"VERILOG_TOP_PARAMS": "W 4 INVERT_IN 1"} | RETIME,
+    ),
+    (
+        "w8_base",
+        {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"},
+    ),
+    (
+        "w8_retime",
+        {"VERILOG_TOP_PARAMS": "W 8 INVERT_IN 1"} | RETIME,
+    ),
+    (
+        "w16_base",
+        {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"},
+    ),
+    (
+        "w16_retime",
+        {"VERILOG_TOP_PARAMS": "W 16 INVERT_IN 1"} | RETIME,
+    ),
 ]]

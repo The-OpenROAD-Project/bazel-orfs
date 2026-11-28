@@ -41,7 +41,9 @@ class ParseTest(unittest.TestCase):
 
     def test_no_retime_is_none(self):
         # a base arm's log: the table of another command must not be read
-        self.assertIsNone(self._parse("global_placement\n 1 | 2 | 3 | 4 | -1.0 | -2.0 | 5\n"))
+        self.assertIsNone(
+            self._parse("global_placement\n 1 | 2 | 3 | 4 | -1.0 | -2.0 | 5\n")
+        )
 
     def test_refusal_is_an_error(self):
         r = self._parse("retime\n[ERROR RET-0040] The design has 2 clocks.\n")

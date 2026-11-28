@@ -1,0 +1,2762 @@
+{
+ "control": [
+  {
+   "base": {
+    "area_um2": 25.9378,
+    "period_ps": 262.8663
+   },
+   "retime": {
+    "area_um2": 27.0751,
+    "period_ps": 247.61388,
+    "retime": {
+     "census": {
+      "constant": 0,
+      "dont_touch": 0,
+      "fenced": 0,
+      "held": 0,
+      "movable": 40,
+      "outside_graph": 0,
+      "sdc": 0,
+      "sequential": 40,
+      "shared_net": 0,
+      "supply": 0
+     },
+     "graph": {
+      "edges": 188,
+      "fenced": 0,
+      "gates": 139,
+      "pinned": 16,
+      "registers": 40
+     },
+     "retime_s": 0,
+     "rounds": [
+      {
+       "kept": 0,
+       "registers": 40,
+       "round": 0,
+       "tns": -27.6411,
+       "wns": -13.831
+      },
+      {
+       "kept": 10,
+       "registers": 42,
+       "round": 1,
+       "tns": -0.9572,
+       "wns": -0.9572
+      },
+      {
+       "kept": 2,
+       "registers": 44,
+       "round": 2,
+       "tns": 0.0,
+       "wns": 1.1592
+      }
+     ],
+     "totals": {
+      "placed": 21,
+      "registers": 44,
+      "resized": 0,
+      "rounds": 2,
+      "slides": 12,
+      "tns": 0.0,
+      "wns": 1.1592
+     }
+    }
+   },
+   "width": 4
+  },
+  {
+   "base": {
+    "area_um2": 74.4309,
+    "period_ps": 393.791
+   },
+   "retime": {
+    "area_um2": 85.2347,
+    "period_ps": 391.494,
+    "retime": {
+     "census": {
+      "constant": 0,
+      "dont_touch": 0,
+      "fenced": 0,
+      "held": 0,
+      "movable": 80,
+      "outside_graph": 0,
+      "sdc": 0,
+      "sequential": 80,
+      "shared_net": 0,
+      "supply": 0
+     },
+     "graph": {
+      "edges": 782,
+      "fenced": 0,
+      "gates": 502,
+      "pinned": 32,
+      "registers": 80
+     },
+     "retime_s": 0,
+     "rounds": [
+      {
+       "kept": 0,
+       "registers": 80,
+       "round": 0,
+       "tns": -1421.2323,
+       "wns": -149.9712
+      },
+      {
+       "kept": 37,
+       "registers": 108,
+       "round": 1,
+       "tns": -1377.6552,
+       "wns": -147.1078
+      }
+     ],
+     "totals": {
+      "placed": 46,
+      "registers": 108,
+      "resized": 0,
+      "rounds": 1,
+      "slides": 37,
+      "tns": -1377.6552,
+      "wns": -147.1078
+     }
+    }
+   },
+   "width": 8
+  },
+  {
+   "base": {
+    "area_um2": 218.438,
+    "period_ps": 547.145
+   },
+   "retime": {
+    "area_um2": 230.029,
+    "period_ps": 547.2429999999999,
+    "retime": {
+     "census": {
+      "constant": 0,
+      "dont_touch": 0,
+      "fenced": 0,
+      "held": 0,
+      "movable": 160,
+      "outside_graph": 0,
+      "sdc": 0,
+      "sequential": 160,
+      "shared_net": 0,
+      "supply": 0
+     },
+     "graph": {
+      "edges": 2726,
+      "fenced": 0,
+      "gates": 1678,
+      "pinned": 64,
+      "registers": 160
+     },
+     "retime_s": 0,
+     "rounds": [
+      {
+       "kept": 0,
+       "registers": 160,
+       "round": 0,
+       "tns": -7310.0781,
+       "wns": -306.3529
+      },
+      {
+       "kept": 33,
+       "registers": 187,
+       "round": 1,
+       "tns": -7146.2573,
+       "wns": -306.186
+      }
+     ],
+     "totals": {
+      "placed": 39,
+      "registers": 187,
+      "resized": 0,
+      "rounds": 1,
+      "slides": 33,
+      "tns": -7146.2573,
+      "wns": -306.186
+     }
+    }
+   },
+   "width": 16
+  },
+  {
+   "base": {
+    "area_um2": 668.712,
+    "period_ps": 764.665
+   },
+   "retime": {
+    "area_um2": 697.988,
+    "period_ps": 765.66,
+    "retime": {
+     "census": {
+      "constant": 0,
+      "dont_touch": 0,
+      "fenced": 0,
+      "held": 0,
+      "movable": 320,
+      "outside_graph": 0,
+      "sdc": 0,
+      "sequential": 320,
+      "shared_net": 0,
+      "supply": 0
+     },
+     "graph": {
+      "edges": 9515,
+      "fenced": 0,
+      "gates": 5774,
+      "pinned": 128,
+      "registers": 320
+     },
+     "retime_s": 0,
+     "rounds": [
+      {
+       "kept": 0,
+       "registers": 320,
+       "round": 0,
+       "tns": -25756.9141,
+       "wns": -523.2018
+      },
+      {
+       "kept": 70,
+       "registers": 386,
+       "round": 1,
+       "tns": -25521.7031,
+       "wns": -523.1923
+      }
+     ],
+     "totals": {
+      "placed": 84,
+      "registers": 386,
+      "resized": 0,
+      "rounds": 1,
+      "slides": 70,
+      "tns": -25521.7031,
+      "wns": -523.1923
+     }
+    }
+   },
+   "width": 32
+  }
+ ],
+ "designs": [
+  {
+   "arms": {
+    "base": {
+     "area": 46.0728,
+     "cells": 423,
+     "gpl_s": null,
+     "hold_ws": 42.9052,
+     "period_ps": 316.6691472416534
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 312.56055860823034
+    },
+    "fin_rt": {
+     "gpl_s": 1.69,
+     "period_ps": 306.7936383271157,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 34,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 34,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 707,
+       "fenced": 0,
+       "gates": 320,
+       "pinned": 53,
+       "registers": 34
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 34,
+        "round": 0,
+        "tns": -65.5243,
+        "wns": -33.2472
+       },
+       {
+        "kept": 13,
+        "registers": 45,
+        "round": 1,
+        "tns": -32.4603,
+        "wns": -16.6181
+       },
+       {
+        "kept": 10,
+        "registers": 51,
+        "round": 2,
+        "tns": 0.0,
+        "wns": 0.0236
+       }
+      ],
+      "totals": {
+       "placed": 59,
+       "registers": 51,
+       "resized": 0,
+       "rounds": 2,
+       "slides": 23,
+       "tns": 0.0,
+       "wns": 0.0236
+      }
+     }
+    },
+    "rt": {
+     "area": 56.133,
+     "cells": 475,
+     "gpl_s": 1.73,
+     "hold_ws": 45.8825,
+     "period_ps": 310.93850569172935,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 34,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 34,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 707,
+       "fenced": 0,
+       "gates": 320,
+       "pinned": 53,
+       "registers": 34
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 34,
+        "round": 0,
+        "tns": -65.5243,
+        "wns": -33.2472
+       },
+       {
+        "kept": 13,
+        "registers": 45,
+        "round": 1,
+        "tns": -32.4603,
+        "wns": -16.6181
+       },
+       {
+        "kept": 10,
+        "registers": 51,
+        "round": 2,
+        "tns": 0.0,
+        "wns": 0.0236
+       }
+      ],
+      "totals": {
+       "placed": 59,
+       "registers": 51,
+       "resized": 0,
+       "rounds": 2,
+       "slides": 23,
+       "tns": 0.0,
+       "wns": 0.0236
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 53.5961,
+     "cells": 459,
+     "gpl_s": 1.83,
+     "hold_ws": 42.552,
+     "period_ps": 314.45156502543915,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 34,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 34,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 706,
+       "fenced": 0,
+       "gates": 319,
+       "pinned": 53,
+       "registers": 34
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 34,
+        "round": 0,
+        "tns": -81.1314,
+        "wns": -33.4384
+       },
+       {
+        "kept": 22,
+        "registers": 48,
+        "round": 1,
+        "tns": 0.0,
+        "wns": 0.8133
+       }
+      ],
+      "totals": {
+       "placed": 40,
+       "registers": 48,
+       "resized": 1,
+       "rounds": 1,
+       "slides": 22,
+       "tns": 0.0,
+       "wns": 0.8133
+      }
+     }
+    },
+    "seed2": {
+     "area": 46.1749,
+     "cells": 425,
+     "gpl_s": null,
+     "hold_ws": 41.8541,
+     "period_ps": 326.4986287057594
+    }
+   },
+   "key": "asap7/gcd",
+   "sigma_ps": 3.12934419365471
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 2520.11,
+     "cells": 21451,
+     "gpl_s": null,
+     "hold_ws": 37.1944,
+     "period_ps": 908.2322168131948
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 904.3063066321824
+    },
+    "fin_rt": {
+     "gpl_s": 159.79,
+     "period_ps": 914.3024329587741,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 40685,
+       "fenced": 0,
+       "gates": 16554,
+       "pinned": 13870,
+       "registers": 1932
+      },
+      "retime_s": 82,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -2131.2551,
+        "wns": -18.9949
+       },
+       {
+        "kept": 8,
+        "registers": 1940,
+        "round": 1,
+        "tns": -1397.7079,
+        "wns": -17.505
+       },
+       {
+        "kept": 6,
+        "registers": 1945,
+        "round": 2,
+        "tns": -1356.6172,
+        "wns": -17.505
+       },
+       {
+        "kept": 1,
+        "registers": 1946,
+        "round": 3,
+        "tns": -1353.4398,
+        "wns": -17.505
+       },
+       {
+        "kept": 0,
+        "registers": 1946,
+        "round": 4,
+        "tns": -1353.4398,
+        "wns": -17.505
+       }
+      ],
+      "totals": {
+       "placed": 25,
+       "registers": 1946,
+       "resized": 11,
+       "rounds": 3,
+       "slides": 15,
+       "tns": -1353.4398,
+       "wns": -17.505
+      }
+     }
+    },
+    "rt": {
+     "area": 2520.84,
+     "cells": 21444,
+     "gpl_s": 167.91,
+     "hold_ws": 37.1955,
+     "period_ps": 913.4672476318361,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 40685,
+       "fenced": 0,
+       "gates": 16554,
+       "pinned": 13870,
+       "registers": 1932
+      },
+      "retime_s": 92,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -2131.2551,
+        "wns": -18.9949
+       },
+       {
+        "kept": 8,
+        "registers": 1940,
+        "round": 1,
+        "tns": -1397.7079,
+        "wns": -17.505
+       },
+       {
+        "kept": 6,
+        "registers": 1945,
+        "round": 2,
+        "tns": -1356.6172,
+        "wns": -17.505
+       },
+       {
+        "kept": 1,
+        "registers": 1946,
+        "round": 3,
+        "tns": -1353.4398,
+        "wns": -17.505
+       },
+       {
+        "kept": 0,
+        "registers": 1946,
+        "round": 4,
+        "tns": -1353.4398,
+        "wns": -17.505
+       }
+      ],
+      "totals": {
+       "placed": 25,
+       "registers": 1946,
+       "resized": 11,
+       "rounds": 3,
+       "slides": 15,
+       "tns": -1353.4398,
+       "wns": -17.505
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 2532.27,
+     "cells": 21497,
+     "gpl_s": 107.47999999999999,
+     "hold_ws": 36.7081,
+     "period_ps": 919.8362691440924,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 40710,
+       "fenced": 0,
+       "gates": 16579,
+       "pinned": 13922,
+       "registers": 1932
+      },
+      "retime_s": 28,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -12072.9521,
+        "wns": -34.1714
+       },
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 1,
+        "tns": -12072.9521,
+        "wns": -34.1714
+       }
+      ],
+      "totals": {
+       "placed": 0,
+       "registers": 1932,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -12072.9521,
+       "wns": -34.1714
+      }
+     }
+    },
+    "seed2": {
+     "area": 2532.27,
+     "cells": 21497,
+     "gpl_s": null,
+     "hold_ws": 36.7081,
+     "period_ps": 919.8362691440924
+    }
+   },
+   "key": "asap7/ibex",
+   "sigma_ps": 1.8771871735873173
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 8135.01,
+     "cells": 61002,
+     "gpl_s": null,
+     "hold_ws": 27.4515,
+     "period_ps": 612.0550359888362
+    },
+    "rt": {
+     "gpl_s": 121.42,
+     "retime": {
+      "error": "[ERROR RET-0033] 3 clocks defined; only single-clock designs can be retimed.",
+      "retime_s": 0,
+      "rounds": []
+     }
+    },
+    "rt_seed2": {
+     "gpl_s": 117.88,
+     "retime": {
+      "error": "[ERROR RET-0033] 3 clocks defined; only single-clock designs can be retimed.",
+      "retime_s": 0,
+      "rounds": []
+     }
+    },
+    "seed2": {
+     "area": 8133,
+     "cells": 60980,
+     "gpl_s": null,
+     "hold_ws": 23.9643,
+     "period_ps": 594.4561023891191
+    }
+   },
+   "failed": {
+    "rt": "[ERROR RET-0033] 3 clocks defined; only single-clock designs can be retimed.",
+    "rt_seed2": "[ERROR RET-0033] 3 clocks defined; only single-clock designs can be retimed."
+   },
+   "key": "asap7/ethmac",
+   "sigma_ps": 4.804932409640769
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 14608.1,
+     "cells": 116164,
+     "gpl_s": null,
+     "hold_ws": 9.61317,
+     "period_ps": 1339.54525117813
+    },
+    "rt": {
+     "area": 14608.1,
+     "cells": 116164,
+     "gpl_s": 474.78,
+     "hold_ws": 9.61317,
+     "period_ps": 1339.54525117813,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 0,
+       "outside_graph": 11,
+       "sdc": 13978,
+       "sequential": 13989,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 277431,
+       "fenced": 0,
+       "gates": 68999,
+       "pinned": 31122,
+       "registers": 13978
+      },
+      "retime_s": 16,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 13989,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -587.2341,
+       "wns": -45.0834
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 14608.1,
+     "cells": 116164,
+     "gpl_s": 492.21,
+     "hold_ws": 9.61317,
+     "period_ps": 1339.54525117813,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 0,
+       "outside_graph": 11,
+       "sdc": 13978,
+       "sequential": 13989,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 277431,
+       "fenced": 0,
+       "gates": 68999,
+       "pinned": 31122,
+       "registers": 13978
+      },
+      "retime_s": 12,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 13989,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -587.2341,
+       "wns": -45.0834
+      }
+     }
+    },
+    "seed2": {
+     "area": 14608.1,
+     "cells": 116164,
+     "gpl_s": null,
+     "hold_ws": 9.61317,
+     "period_ps": 1339.54525117813
+    }
+   },
+   "key": "asap7/swerv_wrapper",
+   "sigma_ps": 8.920389045789568
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 1631.33,
+     "cells": 13445,
+     "gpl_s": null,
+     "hold_ws": 24.7351,
+     "period_ps": 598.3402042733458
+    },
+    "rt": {
+     "area": 1631.33,
+     "cells": 13445,
+     "gpl_s": 37.85,
+     "hold_ws": 24.7351,
+     "period_ps": 598.3402042733458,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 0,
+       "outside_graph": 0,
+       "sdc": 1413,
+       "sequential": 1413,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 22616,
+       "fenced": 0,
+       "gates": 11204,
+       "pinned": 1843,
+       "registers": 1413
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 1413,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -20167.3301,
+       "wns": -329.261
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 1634.99,
+     "cells": 13473,
+     "gpl_s": 37.9,
+     "hold_ws": 20.0198,
+     "period_ps": 593.2816782752116,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 0,
+       "outside_graph": 0,
+       "sdc": 1413,
+       "sequential": 1413,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 22611,
+       "fenced": 0,
+       "gates": 11199,
+       "pinned": 1844,
+       "registers": 1413
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 1413,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -30038.6055,
+       "wns": -333.1963
+      }
+     }
+    },
+    "seed2": {
+     "area": 1634.99,
+     "cells": 13473,
+     "gpl_s": null,
+     "hold_ws": 20.0198,
+     "period_ps": 593.2816782752116
+    }
+   },
+   "key": "asap7/mock-alu",
+   "sigma_ps": 3.883112527067705
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 3984.74,
+     "cells": 32784,
+     "gpl_s": null,
+     "hold_ws": 23.8267,
+     "period_ps": 662.0631210979654
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 657.6913717468941
+    },
+    "fin_rt": {
+     "gpl_s": 30.24,
+     "period_ps": 662.1025729305984,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3826,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3828,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 70067,
+       "fenced": 0,
+       "gates": 26987,
+       "pinned": 357,
+       "registers": 3828
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3828,
+        "round": 0,
+        "tns": -10503.0693,
+        "wns": -70.5423
+       },
+       {
+        "kept": 137,
+        "registers": 3947,
+        "round": 1,
+        "tns": -6786.0742,
+        "wns": -70.4782
+       },
+       {
+        "kept": 3,
+        "registers": 3949,
+        "round": 2,
+        "tns": -6770.0737,
+        "wns": -70.4782
+       }
+      ],
+      "totals": {
+       "placed": 306,
+       "registers": 3949,
+       "resized": 0,
+       "rounds": 2,
+       "slides": 140,
+       "tns": -6770.0737,
+       "wns": -70.4782
+      }
+     }
+    },
+    "rt": {
+     "area": 4034.87,
+     "cells": 32973,
+     "gpl_s": 29.9,
+     "hold_ws": 16.3392,
+     "period_ps": 670.1649275886796,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3826,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3828,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 70067,
+       "fenced": 0,
+       "gates": 26987,
+       "pinned": 357,
+       "registers": 3828
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3828,
+        "round": 0,
+        "tns": -10503.0693,
+        "wns": -70.5423
+       },
+       {
+        "kept": 137,
+        "registers": 3947,
+        "round": 1,
+        "tns": -6786.0742,
+        "wns": -70.4782
+       },
+       {
+        "kept": 3,
+        "registers": 3949,
+        "round": 2,
+        "tns": -6770.0737,
+        "wns": -70.4782
+       }
+      ],
+      "totals": {
+       "placed": 306,
+       "registers": 3949,
+       "resized": 0,
+       "rounds": 2,
+       "slides": 140,
+       "tns": -6770.0737,
+       "wns": -70.4782
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 3998.7,
+     "cells": 32848,
+     "gpl_s": 29.77,
+     "hold_ws": 23.586,
+     "period_ps": 650.1570129186199,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3826,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3828,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 70090,
+       "fenced": 0,
+       "gates": 27010,
+       "pinned": 357,
+       "registers": 3828
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3828,
+        "round": 0,
+        "tns": -7166.4863,
+        "wns": -49.4298
+       },
+       {
+        "kept": 63,
+        "registers": 3877,
+        "round": 1,
+        "tns": -5176.2539,
+        "wns": -47.1054
+       },
+       {
+        "kept": 8,
+        "registers": 3883,
+        "round": 2,
+        "tns": -5132.4482,
+        "wns": -47.1054
+       }
+      ],
+      "totals": {
+       "placed": 214,
+       "registers": 3883,
+       "resized": 3,
+       "rounds": 2,
+       "slides": 71,
+       "tns": -5132.4482,
+       "wns": -47.1054
+      }
+     }
+    },
+    "seed2": {
+     "area": 3997.59,
+     "cells": 32818,
+     "gpl_s": null,
+     "hold_ws": 23.0048,
+     "period_ps": 667.5255495404086
+    }
+   },
+   "key": "asap7/tinyRocket",
+   "sigma_ps": null
+  },
+  {
+   "arms": {},
+   "key": "asap7/jpeg",
+   "sigma_ps": 2.323996719763402
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 311821,
+     "cells": 218046,
+     "gpl_s": null,
+     "hold_ws": 0.0558218,
+     "period_ps": 8593.427746459507
+    },
+    "rt": {
+     "area": 312317,
+     "cells": 218233,
+     "gpl_s": 1551.13,
+     "hold_ws": 0.0519589,
+     "period_ps": 8599.26562271582,
+     "retime": {
+      "census": {
+       "constant": 18,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 24,
+       "movable": 28677,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 28719,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 1078636,
+       "fenced": 0,
+       "gates": 170395,
+       "pinned": 52956,
+       "registers": 28719
+      },
+      "retime_s": 479,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 28719,
+        "round": 0,
+        "tns": -4.3142,
+        "wns": -4.3142
+       },
+       {
+        "kept": 92,
+        "registers": 28800,
+        "round": 1,
+        "tns": -4.311,
+        "wns": -4.311
+       },
+       {
+        "kept": 21,
+        "registers": 28816,
+        "round": 2,
+        "tns": -4.3109,
+        "wns": -4.3109
+       },
+       {
+        "kept": 0,
+        "registers": 28816,
+        "round": 3,
+        "tns": -4.3109,
+        "wns": -4.3109
+       }
+      ],
+      "totals": {
+       "placed": 160,
+       "registers": 28816,
+       "resized": 103,
+       "rounds": 2,
+       "slides": 113,
+       "tns": -4.3109,
+       "wns": -4.3109
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 312513,
+     "cells": 218245,
+     "gpl_s": 1522.04,
+     "hold_ws": 0.0466148,
+     "period_ps": 8545.912917147374,
+     "retime": {
+      "census": {
+       "constant": 18,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 24,
+       "movable": 28677,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 28719,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 1081806,
+       "fenced": 0,
+       "gates": 170361,
+       "pinned": 52968,
+       "registers": 28719
+      },
+      "retime_s": 322,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 28719,
+        "round": 0,
+        "tns": -4.2467,
+        "wns": -4.2467
+       },
+       {
+        "kept": 175,
+        "registers": 28847,
+        "round": 1,
+        "tns": -4.2282,
+        "wns": -4.2282
+       },
+       {
+        "kept": 3,
+        "registers": 28850,
+        "round": 2,
+        "tns": -4.2278,
+        "wns": -4.2278
+       }
+      ],
+      "totals": {
+       "placed": 152,
+       "registers": 28850,
+       "resized": 76,
+       "rounds": 2,
+       "slides": 178,
+       "tns": -4.2278,
+       "wns": -4.2278
+      }
+     }
+    },
+    "seed2": {
+     "area": 311814,
+     "cells": 218014,
+     "gpl_s": null,
+     "hold_ws": 0.0490095,
+     "period_ps": 8566.190957528825
+    }
+   },
+   "key": "nangate45/black_parrot",
+   "sigma_ps": 29.90961133834805
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 307669,
+     "cells": 168883,
+     "gpl_s": null,
+     "hold_ws": 0.0847098,
+     "period_ps": 3258.3478872872297
+    },
+    "rt": {
+     "area": 307669,
+     "cells": 168883,
+     "gpl_s": 979.97,
+     "hold_ws": 0.0847098,
+     "period_ps": 3258.3478872872297,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 20639,
+       "fenced": 0,
+       "held": 132,
+       "movable": 0,
+       "outside_graph": 1,
+       "sdc": 0,
+       "sequential": 20772,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 479520,
+       "fenced": 0,
+       "gates": 130135,
+       "pinned": 58761,
+       "registers": 20771
+      },
+      "retime_s": 34,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 20772,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -963.7717,
+       "wns": -0.4447
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 307659,
+     "cells": 168924,
+     "gpl_s": 275.11,
+     "hold_ws": 0.0669296,
+     "period_ps": 3262.5469398940977,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 20639,
+       "fenced": 0,
+       "held": 132,
+       "movable": 0,
+       "outside_graph": 1,
+       "sdc": 0,
+       "sequential": 20772,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 479325,
+       "fenced": 0,
+       "gates": 130104,
+       "pinned": 58701,
+       "registers": 20771
+      },
+      "retime_s": 21,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 20772,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -826.8524,
+       "wns": -0.42
+      }
+     }
+    },
+    "seed2": {
+     "area": 307659,
+     "cells": 168924,
+     "gpl_s": null,
+     "hold_ws": 0.0669296,
+     "period_ps": 3262.5469398940977
+    }
+   },
+   "key": "nangate45/ariane133",
+   "sigma_ps": 35.38203234031711
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 165701,
+     "cells": 95274,
+     "gpl_s": null,
+     "hold_ws": 0.00186662,
+     "period_ps": 2277.9873526142183
+    },
+    "rt": {
+     "area": 165701,
+     "cells": 95274,
+     "gpl_s": 471.65,
+     "hold_ws": 0.00186662,
+     "period_ps": 2277.9873526142183,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 11307,
+       "fenced": 0,
+       "held": 28,
+       "movable": 1,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 11336,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 262147,
+       "fenced": 0,
+       "gates": 75033,
+       "pinned": 30956,
+       "registers": 11336
+      },
+      "retime_s": 8,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 11336,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -486.0034,
+       "wns": -0.4613
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 165306,
+     "cells": 94666,
+     "gpl_s": 458.35,
+     "hold_ws": 0.0182383,
+     "period_ps": 2287.1937733436716,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 11307,
+       "fenced": 0,
+       "held": 28,
+       "movable": 1,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 11336,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 261703,
+       "fenced": 0,
+       "gates": 74449,
+       "pinned": 30774,
+       "registers": 11336
+      },
+      "retime_s": 10,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 11336,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -450.8157,
+       "wns": -0.4637
+      }
+     }
+    },
+    "seed2": {
+     "area": 165306,
+     "cells": 94666,
+     "gpl_s": null,
+     "hold_ws": 0.0182383,
+     "period_ps": 2287.1937733436716
+    }
+   },
+   "key": "nangate45/swerv_wrapper",
+   "sigma_ps": 21.119666148499537
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 52156.2,
+     "cells": 28721,
+     "gpl_s": null,
+     "hold_ws": 0.0724211,
+     "period_ps": 1310.1712524844122
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 1311.4926097391442
+    },
+    "fin_rt": {
+     "gpl_s": 80.8,
+     "period_ps": 1299.7056166778225,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3913,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3915,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 62178,
+       "fenced": 0,
+       "gates": 22923,
+       "pinned": 3802,
+       "registers": 3915
+      },
+      "retime_s": 16,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3915,
+        "round": 0,
+        "tns": -42.6166,
+        "wns": -0.1234
+       },
+       {
+        "kept": 195,
+        "registers": 4098,
+        "round": 1,
+        "tns": -41.7512,
+        "wns": -0.123
+       },
+       {
+        "kept": 0,
+        "registers": 4098,
+        "round": 2,
+        "tns": -41.7512,
+        "wns": -0.123
+       }
+      ],
+      "totals": {
+       "placed": 270,
+       "registers": 4098,
+       "resized": 1,
+       "rounds": 1,
+       "slides": 195,
+       "tns": -41.7512,
+       "wns": -0.123
+      }
+     }
+    },
+    "rt": {
+     "area": 53198.1,
+     "cells": 29019,
+     "gpl_s": 98.53,
+     "hold_ws": 0.0722353,
+     "period_ps": 1295.7731878611967,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3913,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3915,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 62178,
+       "fenced": 0,
+       "gates": 22923,
+       "pinned": 3802,
+       "registers": 3915
+      },
+      "retime_s": 26,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3915,
+        "round": 0,
+        "tns": -42.6166,
+        "wns": -0.1234
+       },
+       {
+        "kept": 195,
+        "registers": 4098,
+        "round": 1,
+        "tns": -41.7512,
+        "wns": -0.123
+       },
+       {
+        "kept": 0,
+        "registers": 4098,
+        "round": 2,
+        "tns": -41.7512,
+        "wns": -0.123
+       }
+      ],
+      "totals": {
+       "placed": 270,
+       "registers": 4098,
+       "resized": 1,
+       "rounds": 1,
+       "slides": 195,
+       "tns": -41.7512,
+       "wns": -0.123
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 52453.9,
+     "cells": 28852,
+     "gpl_s": 328.99,
+     "hold_ws": 0.0724879,
+     "period_ps": 1304.0512961617858,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 2,
+       "movable": 3913,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 3915,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 62267,
+       "fenced": 0,
+       "gates": 23012,
+       "pinned": 3825,
+       "registers": 3915
+      },
+      "retime_s": 263,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 3915,
+        "round": 0,
+        "tns": -46.2431,
+        "wns": -0.1343
+       },
+       {
+        "kept": 3,
+        "registers": 3918,
+        "round": 1,
+        "tns": -46.1728,
+        "wns": -0.1343
+       },
+       {
+        "kept": 1,
+        "registers": 3919,
+        "round": 2,
+        "tns": -46.134,
+        "wns": -0.1343
+       },
+       {
+        "kept": 3,
+        "registers": 3922,
+        "round": 3,
+        "tns": -46.1229,
+        "wns": -0.1343
+       },
+       {
+        "kept": 0,
+        "registers": 3922,
+        "round": 4,
+        "tns": -46.1229,
+        "wns": -0.1343
+       }
+      ],
+      "totals": {
+       "placed": 11,
+       "registers": 3922,
+       "resized": 5,
+       "rounds": 3,
+       "slides": 7,
+       "tns": -46.1229,
+       "wns": -0.1343
+      }
+     }
+    },
+    "seed2": {
+     "area": 52321.1,
+     "cells": 28833,
+     "gpl_s": null,
+     "hold_ws": 0.0730173,
+     "period_ps": 1291.2906320738514
+    }
+   },
+   "key": "nangate45/tinyRocket",
+   "sigma_ps": 13.502831897578805
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 91833.6,
+     "cells": 61188,
+     "gpl_s": null,
+     "hold_ws": 0.000277611,
+     "period_ps": 1089.5893011047347
+    },
+    "rt": {
+     "area": 91833.6,
+     "cells": 61188,
+     "gpl_s": 144.72,
+     "hold_ws": 0.000277611,
+     "period_ps": 1089.5893011047347,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4318,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4384,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 113762,
+       "fenced": 0,
+       "gates": 54803,
+       "pinned": 285,
+       "registers": 4384
+      },
+      "retime_s": 7,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4384,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -23.2265,
+       "wns": -0.0739
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 92027.2,
+     "cells": 61169,
+     "gpl_s": 144.6,
+     "hold_ws": 0.0106147,
+     "period_ps": 1088.3441605438238,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4318,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4384,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 113720,
+       "fenced": 0,
+       "gates": 54761,
+       "pinned": 276,
+       "registers": 4384
+      },
+      "retime_s": 7,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4384,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -28.1429,
+       "wns": -0.0824
+      }
+     }
+    },
+    "seed2": {
+     "area": 92027.2,
+     "cells": 61169,
+     "gpl_s": null,
+     "hold_ws": 0.0106147,
+     "period_ps": 1088.3441605438238
+    }
+   },
+   "key": "nangate45/jpeg",
+   "sigma_ps": 12.665981310448197
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 856720,
+     "cells": 133521,
+     "gpl_s": null,
+     "hold_ws": -0.0590976,
+     "period_ps": 16273.49893245847
+    },
+    "rt": {
+     "gpl_s": 348.68,
+     "retime": {
+      "error": "[ERROR RET-0033] 2 clocks defined; only single-clock designs can be retimed.",
+      "retime_s": 0,
+      "rounds": []
+     }
+    },
+    "rt_seed2": {
+     "gpl_s": 349.03,
+     "retime": {
+      "error": "[ERROR RET-0033] 2 clocks defined; only single-clock designs can be retimed.",
+      "retime_s": 0,
+      "rounds": []
+     }
+    },
+    "seed2": {
+     "area": 852008,
+     "cells": 133172,
+     "gpl_s": null,
+     "hold_ws": -0.0460476,
+     "period_ps": 16431.882452885686
+    }
+   },
+   "failed": {
+    "rt": "[ERROR RET-0033] 2 clocks defined; only single-clock designs can be retimed.",
+    "rt_seed2": "[ERROR RET-0033] 2 clocks defined; only single-clock designs can be retimed."
+   },
+   "key": "sky130hd/microwatt",
+   "sigma_ps": 83.381035324063
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 170368,
+     "cells": 20421,
+     "gpl_s": null,
+     "hold_ws": 0.47959,
+     "period_ps": 8551.101381857983
+    },
+    "rt": {
+     "area": 168692,
+     "cells": 20407,
+     "gpl_s": 159.27,
+     "hold_ws": 0.480043,
+     "period_ps": 8478.096836822071,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 36512,
+       "fenced": 0,
+       "gates": 14614,
+       "pinned": 12372,
+       "registers": 1932
+      },
+      "retime_s": 58,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -319.2438,
+        "wns": -0.818
+       },
+       {
+        "kept": 8,
+        "registers": 1940,
+        "round": 1,
+        "tns": -314.7636,
+        "wns": -0.7763
+       },
+       {
+        "kept": 0,
+        "registers": 1940,
+        "round": 2,
+        "tns": -314.7636,
+        "wns": -0.7763
+       }
+      ],
+      "totals": {
+       "placed": 30,
+       "registers": 1940,
+       "resized": 0,
+       "rounds": 1,
+       "slides": 8,
+       "tns": -314.7635,
+       "wns": -0.7763
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 170722,
+     "cells": 20408,
+     "gpl_s": 166.36,
+     "hold_ws": 0.478092,
+     "period_ps": 8320.436656515734,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 36464,
+       "fenced": 0,
+       "gates": 14566,
+       "pinned": 12371,
+       "registers": 1932
+      },
+      "retime_s": 66,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -293.559,
+        "wns": -0.5968
+       },
+       {
+        "kept": 16,
+        "registers": 1944,
+        "round": 1,
+        "tns": -292.9521,
+        "wns": -0.5968
+       },
+       {
+        "kept": 6,
+        "registers": 1950,
+        "round": 2,
+        "tns": -291.7968,
+        "wns": -0.5968
+       },
+       {
+        "kept": 0,
+        "registers": 1950,
+        "round": 3,
+        "tns": -291.7968,
+        "wns": -0.5968
+       }
+      ],
+      "totals": {
+       "placed": 43,
+       "registers": 1950,
+       "resized": 0,
+       "rounds": 2,
+       "slides": 22,
+       "tns": -291.7968,
+       "wns": -0.5968
+      }
+     }
+    },
+    "seed2": {
+     "area": 169415,
+     "cells": 20337,
+     "gpl_s": null,
+     "hold_ws": 0.471775,
+     "period_ps": 8373.666493610892
+    }
+   },
+   "key": "sky130hd/ibex",
+   "sigma_ps": 79.38228907352456
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 73355.4,
+     "cells": 7342,
+     "gpl_s": null,
+     "hold_ws": 0.632483,
+     "period_ps": 6129.4039767573
+    },
+    "rt": {
+     "area": 73355.4,
+     "cells": 7342,
+     "gpl_s": 11.63,
+     "hold_ws": 0.632483,
+     "period_ps": 6129.4039767573,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 32,
+       "fenced": 0,
+       "held": 0,
+       "movable": 1024,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1056,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 11969,
+       "fenced": 0,
+       "gates": 4238,
+       "pinned": 312,
+       "registers": 1056
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 1056,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -73.0547,
+       "wns": -0.583
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 73993.5,
+     "cells": 7371,
+     "gpl_s": 12.4,
+     "hold_ws": 0.62269,
+     "period_ps": 6034.748079441424,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 32,
+       "fenced": 0,
+       "held": 0,
+       "movable": 1024,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1056,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 11989,
+       "fenced": 0,
+       "gates": 4258,
+       "pinned": 298,
+       "registers": 1056
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 1056,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -52.6716,
+       "wns": -0.62
+      }
+     }
+    },
+    "seed2": {
+     "area": 73993.5,
+     "cells": 7371,
+     "gpl_s": null,
+     "hold_ws": 0.62269,
+     "period_ps": 6034.748079441424
+    }
+   },
+   "key": "sky130hd/riscv32i",
+   "sigma_ps": 36.886948115858694
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 124478,
+     "cells": 18405,
+     "gpl_s": null,
+     "hold_ws": 0.525409,
+     "period_ps": 3637.620268820138
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 3741.156840518225
+    },
+    "fin_rt": {
+     "gpl_s": 51.11,
+     "period_ps": 3728.338354162317,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 562,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 562,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 36291,
+       "fenced": 0,
+       "gates": 14489,
+       "pinned": 398,
+       "registers": 562
+      },
+      "retime_s": 8,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 562,
+        "round": 0,
+        "tns": -9.1397,
+        "wns": -0.6242
+       },
+       {
+        "kept": 5,
+        "registers": 567,
+        "round": 1,
+        "tns": -7.1126,
+        "wns": -0.6242
+       },
+       {
+        "kept": 2,
+        "registers": 569,
+        "round": 2,
+        "tns": -6.7993,
+        "wns": -0.5006
+       },
+       {
+        "kept": 1,
+        "registers": 570,
+        "round": 3,
+        "tns": -6.6087,
+        "wns": -0.4998
+       }
+      ],
+      "totals": {
+       "placed": 17,
+       "registers": 570,
+       "resized": 11,
+       "rounds": 3,
+       "slides": 8,
+       "tns": -6.6087,
+       "wns": -0.4998
+      }
+     }
+    },
+    "rt": {
+     "area": 123893,
+     "cells": 18384,
+     "gpl_s": 55.02,
+     "hold_ws": 0.500211,
+     "period_ps": 3608.688277897867,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 562,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 562,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 36291,
+       "fenced": 0,
+       "gates": 14489,
+       "pinned": 398,
+       "registers": 562
+      },
+      "retime_s": 9,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 562,
+        "round": 0,
+        "tns": -9.1397,
+        "wns": -0.6242
+       },
+       {
+        "kept": 5,
+        "registers": 567,
+        "round": 1,
+        "tns": -7.1126,
+        "wns": -0.6242
+       },
+       {
+        "kept": 2,
+        "registers": 569,
+        "round": 2,
+        "tns": -6.7993,
+        "wns": -0.5006
+       },
+       {
+        "kept": 1,
+        "registers": 570,
+        "round": 3,
+        "tns": -6.6087,
+        "wns": -0.4998
+       }
+      ],
+      "totals": {
+       "placed": 17,
+       "registers": 570,
+       "resized": 11,
+       "rounds": 3,
+       "slides": 8,
+       "tns": -6.6087,
+       "wns": -0.4998
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 119603,
+     "cells": 17888,
+     "gpl_s": 50.69,
+     "hold_ws": 0.506064,
+     "period_ps": 3627.0651602256034,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 0,
+       "fenced": 0,
+       "held": 0,
+       "movable": 562,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 562,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 35882,
+       "fenced": 0,
+       "gates": 14080,
+       "pinned": 400,
+       "registers": 562
+      },
+      "retime_s": 6,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 562,
+        "round": 0,
+        "tns": -7.4713,
+        "wns": -0.5488
+       },
+       {
+        "kept": 0,
+        "registers": 562,
+        "round": 1,
+        "tns": -7.4713,
+        "wns": -0.5488
+       }
+      ],
+      "totals": {
+       "placed": 0,
+       "registers": 562,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -7.4713,
+       "wns": -0.5488
+      }
+     }
+    },
+    "seed2": {
+     "area": 119603,
+     "cells": 17888,
+     "gpl_s": null,
+     "hold_ws": 0.506064,
+     "period_ps": 3627.0651602256034
+    }
+   },
+   "key": "sky130hd/aes",
+   "sigma_ps": 52.3304137232392
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 459329,
+     "cells": 46741,
+     "gpl_s": null,
+     "hold_ws": 0.352902,
+     "period_ps": 5396.2463710243155
+    },
+    "rt": {
+     "area": 460778,
+     "cells": 46846,
+     "gpl_s": 42.1,
+     "hold_ws": 0.347352,
+     "period_ps": 5503.91052843045,
+     "retime": {
+      "census": {
+       "constant": 12,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4306,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4384,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 73356,
+       "fenced": 0,
+       "gates": 31063,
+       "pinned": 374,
+       "registers": 4384
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 4384,
+        "round": 0,
+        "tns": -66.2039,
+        "wns": -0.4621
+       },
+       {
+        "kept": 6,
+        "registers": 4390,
+        "round": 1,
+        "tns": -66.2033,
+        "wns": -0.4621
+       },
+       {
+        "kept": 0,
+        "registers": 4390,
+        "round": 2,
+        "tns": -66.2033,
+        "wns": -0.4621
+       }
+      ],
+      "totals": {
+       "placed": 11,
+       "registers": 4390,
+       "resized": 0,
+       "rounds": 1,
+       "slides": 6,
+       "tns": -66.2033,
+       "wns": -0.4621
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 458984,
+     "cells": 46640,
+     "gpl_s": 44.34,
+     "hold_ws": 0.350422,
+     "period_ps": 5445.644301405521,
+     "retime": {
+      "census": {
+       "constant": 12,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4306,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4384,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 73252,
+       "fenced": 0,
+       "gates": 30959,
+       "pinned": 395,
+       "registers": 4384
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 4384,
+        "round": 0,
+        "tns": -73.3378,
+        "wns": -0.4713
+       },
+       {
+        "kept": 8,
+        "registers": 4392,
+        "round": 1,
+        "tns": -73.3377,
+        "wns": -0.4713
+       },
+       {
+        "kept": 0,
+        "registers": 4392,
+        "round": 2,
+        "tns": -73.3377,
+        "wns": -0.4713
+       }
+      ],
+      "totals": {
+       "placed": 15,
+       "registers": 4392,
+       "resized": 0,
+       "rounds": 1,
+       "slides": 8,
+       "tns": -73.3377,
+       "wns": -0.4713
+      }
+     }
+    },
+    "seed2": {
+     "area": 457118,
+     "cells": 46626,
+     "gpl_s": null,
+     "hold_ws": 0.355714,
+     "period_ps": 5391.911055035236
+    }
+   },
+   "key": "sky130hd/jpeg",
+   "sigma_ps": 56.64689586597626
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 719091,
+     "cells": 54670,
+     "gpl_s": null,
+     "hold_ws": 0.18683,
+     "period_ps": 3684.082552921846
+    },
+    "fin_base": {
+     "gpl_s": null,
+     "period_ps": 3633.9322053607766
+    },
+    "fin_rt": {
+     "gpl_s": 84.33,
+     "period_ps": 3633.9322053607766,
+     "retime": {
+      "census": {
+       "constant": 35,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4412,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4513,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 77342,
+       "fenced": 0,
+       "gates": 34906,
+       "pinned": 11514,
+       "registers": 4513
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4513,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -47.3789,
+       "wns": -0.2281
+      }
+     }
+    },
+    "rt": {
+     "area": 719091,
+     "cells": 54670,
+     "gpl_s": 84.16,
+     "hold_ws": 0.18683,
+     "period_ps": 3684.082552921846,
+     "retime": {
+      "census": {
+       "constant": 35,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4412,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4513,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 77342,
+       "fenced": 0,
+       "gates": 34906,
+       "pinned": 11514,
+       "registers": 4513
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4513,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -47.3789,
+       "wns": -0.2281
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 716657,
+     "cells": 54550,
+     "gpl_s": 68.31,
+     "hold_ws": 0.235107,
+     "period_ps": 3561.570652657822,
+     "retime": {
+      "census": {
+       "constant": 35,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4412,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4513,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 77287,
+       "fenced": 0,
+       "gates": 34851,
+       "pinned": 11527,
+       "registers": 4513
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4513,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -18.1011,
+       "wns": -0.1641
+      }
+     }
+    },
+    "seed2": {
+     "area": 716657,
+     "cells": 54550,
+     "gpl_s": null,
+     "hold_ws": 0.235107,
+     "period_ps": 3561.570652657822
+    }
+   },
+   "key": "sky130hs/jpeg",
+   "sigma_ps": 33.25612258383385
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 704652,
+     "cells": 14404,
+     "gpl_s": null,
+     "hold_ws": 0.452543,
+     "period_ps": 9435.119401436024
+    },
+    "rt": {
+     "area": 704652,
+     "cells": 14404,
+     "gpl_s": 46.92,
+     "hold_ws": 0.452543,
+     "period_ps": 9435.119401436024,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 29567,
+       "fenced": 0,
+       "gates": 10941,
+       "pinned": 8920,
+       "registers": 1932
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 1932,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": -1118.897,
+       "wns": -1.4466
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 724109,
+     "cells": 14733,
+     "gpl_s": 47.6,
+     "hold_ws": 0.457833,
+     "period_ps": 9413.536665725313,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 1659,
+       "fenced": 0,
+       "held": 0,
+       "movable": 273,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 1932,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 29916,
+       "fenced": 0,
+       "gates": 11290,
+       "pinned": 9281,
+       "registers": 1932
+      },
+      "retime_s": 0,
+      "rounds": [
+       {
+        "kept": 0,
+        "registers": 1932,
+        "round": 0,
+        "tns": -1089.9923,
+        "wns": -1.4119
+       },
+       {
+        "kept": 3,
+        "registers": 1935,
+        "round": 1,
+        "tns": -1059.7958,
+        "wns": -1.3567
+       }
+      ],
+      "totals": {
+       "placed": 4,
+       "registers": 1935,
+       "resized": 4,
+       "rounds": 1,
+       "slides": 3,
+       "tns": -1059.7958,
+       "wns": -1.3567
+      }
+     }
+    },
+    "seed2": {
+     "area": 721516,
+     "cells": 14747,
+     "gpl_s": null,
+     "hold_ws": 0.457835,
+     "period_ps": 9411.853288030947
+    }
+   },
+   "key": "gf180/ibex",
+   "sigma_ps": 70.56061013200377
+  },
+  {
+   "arms": {
+    "base": {
+     "area": 2133780.0,
+     "cells": 44057,
+     "gpl_s": null,
+     "hold_ws": 0.322824,
+     "period_ps": 6011.602392617752
+    },
+    "rt": {
+     "area": 2133780.0,
+     "cells": 44057,
+     "gpl_s": 101.9,
+     "hold_ws": 0.322824,
+     "period_ps": 6011.602392617752,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4447,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4513,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 87223,
+       "fenced": 0,
+       "gates": 36060,
+       "pinned": 13887,
+       "registers": 4513
+      },
+      "retime_s": 0,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4513,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": 0.0,
+       "wns": 0.2409
+      }
+     }
+    },
+    "rt_seed2": {
+     "area": 2121320.0,
+     "cells": 43793,
+     "gpl_s": 102.91,
+     "hold_ws": 0.342789,
+     "period_ps": 5988.597709960236,
+     "retime": {
+      "census": {
+       "constant": 0,
+       "dont_touch": 66,
+       "fenced": 0,
+       "held": 0,
+       "movable": 4447,
+       "outside_graph": 0,
+       "sdc": 0,
+       "sequential": 4513,
+       "shared_net": 0,
+       "supply": 0
+      },
+      "graph": {
+       "edges": 86971,
+       "fenced": 0,
+       "gates": 35808,
+       "pinned": 13900,
+       "registers": 4513
+      },
+      "retime_s": 6,
+      "rounds": [],
+      "totals": {
+       "placed": 0,
+       "registers": 4513,
+       "resized": 0,
+       "rounds": 0,
+       "slides": 0,
+       "tns": 0.0,
+       "wns": 0.2182
+      }
+     }
+    },
+    "seed2": {
+     "area": 2121320.0,
+     "cells": 43793,
+     "gpl_s": null,
+     "hold_ws": 0.342789,
+     "period_ps": 5988.597709960236
+    }
+   },
+   "key": "gf180/jpeg",
+   "sigma_ps": 23.933699298572034
+  }
+ ]
+}

@@ -58,7 +58,10 @@ RETIME_PANEL = TWO_PASS_PANEL + RETIME_EXTRA
 
 [repair_arms(k) for k in RETIME_EXTRA]
 
-[retime_arms(k, final = k in RETIME_FINAL) for k in RETIME_PANEL]
+[retime_arms(
+    k,
+    final = k in RETIME_FINAL,
+) for k in RETIME_PANEL]
 
 py_library(
     name = "two_pass",
